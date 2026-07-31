@@ -4,8 +4,9 @@ The first contact with a real model has to be able to record, because an agent e
 for calls no solver ever needed. Once the corpus covers what agents actually try, it is frozen and
 the published runs replay it, so every cell sees the same bytes.
 
-    uv run python -m scripts.pilot                 # t1 across all six cells
-    uv run python -m scripts.pilot t4-sao-paulo-yes-votes
+    uv run python -m scripts.pilot                            # t1 across the triad
+    uv run python -m scripts.pilot t4-sao-paulo-yes-votes     # one task, all three
+    uv run python -m scripts.pilot t1-civil-name baseline     # one task, one arm
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 
-from bench import config, spec, tasks
+from bench import config, spec, tasks, triad
 from bench.agent import run_trial
 from bench.replay import Cassette
 
@@ -26,22 +27,16 @@ SPEC = ROOT / "data" / "specs" / "camara-dados-abertos-v2.json"
 CASSETTES = ROOT / "data" / "cassettes"
 RUNS = ROOT / "runs"
 
-# The run-time design. Disclosure is held at `indexed` — the realistic default, and the level the
-# static half already showed is within a rounding error of `lazy` — so the money goes on the axis
-# that is still unmeasured: what happens to a response on its way into the context. The two eager
-# cells stay as the baseline everything else is compared against.
-CELLS: tuple[tuple[str, str, str], ...] = (
-    ("mcp", "eager", "whole"),
-    ("cli", "eager", "whole"),
-    ("mcp", "indexed", "whole"),
-    ("cli", "indexed", "whole"),
-    ("mcp", "indexed", "filtered"),
-    ("cli", "indexed", "filtered"),
-)
+def _arms(selector: str) -> list[triad.Arm]:
+    """`triad` for level zero, or a single arm by key."""
+    if selector == "triad":
+        return list(triad.TRIAD)
+    return [triad.by_key(selector)]
 
 
 def main() -> None:
     task = tasks.by_id(sys.argv[1]) if len(sys.argv) > 1 else tasks.TASKS[0]
+    arms = _arms(sys.argv[2] if len(sys.argv) > 2 else "triad")
     registry = spec.load(SPEC)
     cassette = Cassette(CASSETTES, base_url=registry.base_url, mode="record")
     client = OpenAI(base_url=config.OPENROUTER_BASE_URL, api_key=config.api_key())
@@ -52,17 +47,18 @@ def main() -> None:
 
     trace_dir = RUNS / "pilot" / task.id
     results = []
-    for fmt, disclosure, handling in CELLS:
-        console.print(f"  running {fmt}/{disclosure}/{handling} …", end="")
+    for arm in arms:
+        console.print(f"  running [bold]{arm.key}[/] ({arm.fmt}/{arm.disclosure}/{arm.handling}) …", end="")
         trial = run_trial(
             task,
-            fmt=fmt,
-            disclosure=disclosure,  # type: ignore[arg-type]
-            handling=handling,  # type: ignore[arg-type]
+            fmt=arm.fmt,
+            disclosure=arm.disclosure,
+            handling=arm.handling,
             registry=registry,
             cassette=cassette,
             client=client,
             trace_dir=trace_dir,
+            max_turns=arm.max_turns,
         )
         console.print(" [green]ok[/]" if trial.success else f" [red]{trial.aborted or 'wrong answer'}[/]")
         results.append(trial)

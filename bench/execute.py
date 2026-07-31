@@ -11,6 +11,7 @@ import json
 import shlex
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 import jq
 
@@ -114,6 +115,38 @@ def _invoke(
         http_status=recorded.status,
         operation=operation.name,
     )
+
+
+def fetch_url(
+    registry: Registry, cassette: Cassette, url: str, *, jq_expression: str | None = None
+) -> ToolResult:
+    """Run one GET, as the raw format would.
+
+    The URL is reduced to the same path-and-params key the other formats produce, so a probe and a
+    tool call that mean the same request share one recording. A URL outside the API is refused
+    rather than recorded: the arm is meant to explore this API, not the internet.
+    """
+    parsed = urlsplit(url.strip())
+    base = urlsplit(registry.base_url)
+    if parsed.scheme or parsed.netloc:
+        if (parsed.scheme, parsed.netloc) != (base.scheme, base.netloc):
+            return ToolResult(
+                text=f"error: this tool only reaches {registry.base_url}, not {url!r}.", ok=False
+            )
+        path = parsed.path
+    else:
+        path = parsed.path if parsed.path.startswith("/") else f"/{parsed.path}"
+
+    if path.startswith(base.path):
+        path = path[len(base.path) :] or "/"
+    params = {key: value for key, value in parse_qsl(parsed.query, keep_blank_values=False)}
+
+    recorded = cassette.get(path, params)
+    ok = 200 <= recorded.status < 300
+    if jq_expression and ok:
+        text, filtered_ok = apply_filter(recorded.body, jq_expression)
+        return ToolResult(text=text, ok=filtered_ok, http_status=recorded.status)
+    return ToolResult(text=_serialise(recorded.body), ok=ok, http_status=recorded.status)
 
 
 def run_command(

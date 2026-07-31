@@ -25,7 +25,8 @@ from bench import config, tokens
 from bench.arms import Disclosure, Handling
 from bench.arms import cli as cli_arm
 from bench.arms import mcp as mcp_arm
-from bench.execute import call_operation, run_command
+from bench.arms import raw as raw_arm
+from bench.execute import call_operation, fetch_url, run_command
 from bench.replay import Cassette, CassetteMiss
 from bench.spec import Registry
 from bench.tasks import Task
@@ -141,6 +142,8 @@ def _search(
 def _tools_for_turn(
     registry: Registry, fmt: str, disclosure: Disclosure, loaded: set[str], filtering: bool
 ) -> list[dict[str, Any]]:
+    if fmt == "raw":
+        return raw_arm.tools_for(registry, disclosure=disclosure, filtering=filtering)
     if fmt == "cli":
         return cli_arm.tools_for(registry, disclosure=disclosure, filtering=filtering)
     if disclosure == "eager":
@@ -155,6 +158,8 @@ def _tools_for_turn(
 
 
 def _system_prompt(registry: Registry, fmt: str, disclosure: Disclosure) -> str:
+    if fmt == "raw":
+        return raw_arm.system_prompt(registry, disclosure=disclosure)
     if fmt == "cli":
         return cli_arm.system_prompt(registry, disclosure=disclosure)
     return mcp_arm.system_prompt(registry, disclosure=disclosure, prefix=PREFIX)
@@ -334,6 +339,15 @@ def _dispatch(
     filtering: bool = False,
     deferred: bool = False,
 ) -> str:
+    if fmt == "raw":
+        if name != "http_get":
+            return f"error: no such tool {name!r}"
+        return fetch_url(
+            registry,
+            cassette,
+            str(arguments.get("url", "")),
+            jq_expression=arguments.get("_jq") if filtering else None,
+        ).text
     if fmt == "cli":
         if name != "run_cli":
             return f"error: no such tool {name!r}"
