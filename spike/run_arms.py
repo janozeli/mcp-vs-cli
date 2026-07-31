@@ -65,19 +65,20 @@ def main() -> None:
     table = Table(title=f"{task.id} — pi")
     table.add_column("arm")
     table.add_column("ok", justify="center")
-    for column in ("turns", "calls", "peak ctx", "context Σ", "output", "reasoning", "cost"):
+    for column in ("turns", "calls", "ctx (pi)", "% janela", "tokens Σ", "peak (nosso)", "cost"):
         table.add_column(column, justify="right")
     for arm, result, ok in results:
+        stats = result.stats
         table.add_row(
             arm.key,
             "[green]yes[/]" if ok else "[red]no[/]",
             str(len(result.turns)),
             str(len(result.tool_calls)),
+            f"{stats.context_tokens:,}" if stats and stats.context_tokens else "—",
+            f"{stats.context_percent:.1f}%" if stats and stats.context_percent else "—",
+            f"{stats.total:,}" if stats else "—",
             f"{result.peak_context:,}",
-            f"{result.total_input:,}",
-            f"{result.total_output:,}",
-            f"{result.total_reasoning:,}",
-            f"${result.cost:.4f}",
+            f"${stats.cost:.4f}" if stats else f"${result.cost:.4f}",
         )
     console.print()
     console.print(table)

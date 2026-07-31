@@ -26,10 +26,12 @@ switched off for the same reason — running inside this repository would otherw
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -54,17 +56,22 @@ SETTINGS: dict[str, Any] = {
 
 # Applied to every run, without exception. If an arm needs one of these changed, it is no longer the
 # same experiment and the difference has to be declared.
+#
+# RPC rather than `--print --mode json`, for one reason: it can be asked `get_session_stats`, whose
+# `contextUsage` is the estimate pi itself uses for compaction and its own footer. Summing per-turn
+# usage is a derivation of ours; this is the number the harness believes. Its `tokens` also include
+# usage reported by tools and by compaction, which per-turn parsing misses.
 ISOLATION = [
-    "--print",
-    "--mode", "json",
+    "--mode",
+    "rpc",
     "--no-session",
-    "--no-extensions",       # explicit -e paths still load
-    "--no-context-files",    # or this repository's own CLAUDE.md joins every cell
+    "--no-extensions",  # explicit -e paths still load
+    "--no-context-files",  # or this repository's own CLAUDE.md joins every cell
     "--no-skills",
     "--no-prompt-templates",
     "--no-themes",
     "--no-approve",
-    "--offline",             # no startup network calls to muddy the timing
+    "--offline",  # no startup network calls to muddy the timing
 ]
 
 
@@ -120,11 +127,45 @@ class Turn:
 
 
 @dataclass(slots=True)
+class Stats:
+    """What pi says about the session, rather than what we computed from its events."""
+
+    input: int
+    output: int
+    cache_read: int
+    cache_write: int
+    total: int
+    cost: float
+    context_tokens: int | None
+    context_window: int | None
+    context_percent: float | None
+    tool_calls: int
+
+    @classmethod
+    def from_payload(cls, data: dict[str, Any]) -> Stats:
+        tokens = data.get("tokens") or {}
+        usage = data.get("contextUsage") or {}
+        return cls(
+            input=int(tokens.get("input") or 0),
+            output=int(tokens.get("output") or 0),
+            cache_read=int(tokens.get("cacheRead") or 0),
+            cache_write=int(tokens.get("cacheWrite") or 0),
+            total=int(tokens.get("total") or 0),
+            cost=float(data.get("cost") or 0.0),
+            context_tokens=usage.get("tokens"),
+            context_window=usage.get("contextWindow"),
+            context_percent=usage.get("percent"),
+            tool_calls=int(data.get("toolCalls") or 0),
+        )
+
+
+@dataclass(slots=True)
 class Result:
     arm: str
     answer: str
     turns: list[Turn]
     tool_calls: list[str]
+    stats: Stats | None = None
     raw: Path | None = None
 
     @property
@@ -161,9 +202,7 @@ def _mcp_config(root: Path, arm: Arm) -> None:
     if not arm.mcp_servers:
         return
     servers = {name: {"command": command, "args": []} for name, command in arm.mcp_servers.items()}
-    (root / ".mcp.json").write_text(
-        json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8"
-    )
+    (root / ".mcp.json").write_text(json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8")
 
 
 def _parse(stdout: str) -> tuple[list[Turn], list[str], str]:
@@ -213,7 +252,11 @@ def run(
     timeout: int = 900,
     keep_raw: bool = True,
 ) -> Result:
-    """Run one question through one arm, with every other variable held here."""
+    """Run one question through one arm, with every other variable held here.
+
+    The conversation happens over RPC: the prompt goes in on stdin, events come back on stdout, and
+    once the agent settles we ask it for its own accounting rather than trusting ours.
+    """
     workdir.mkdir(parents=True, exist_ok=True)
     home = _isolated_home(workdir)
     _mcp_config(workdir, arm)
@@ -226,7 +269,6 @@ def run(
         command += ["--thinking", thinking]
     for extension in arm.extensions:
         command += ["--extension", str(extension)]
-    command.append(question)
 
     env = dict(os.environ)
     env["HOME"] = str(home)
@@ -235,15 +277,63 @@ def run(
     if arm.path_additions:
         env["PATH"] = os.pathsep.join([*(str(p) for p in arm.path_additions), env.get("PATH", "")])
 
-    completed = subprocess.run(
-        command, cwd=workdir, env=env, capture_output=True, text=True, timeout=timeout
+    deadline = time.monotonic() + timeout
+    lines: list[str] = []
+    stats: Stats | None = None
+
+    process = subprocess.Popen(
+        command,
+        cwd=workdir,
+        env=env,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        bufsize=1,
     )
-    turns, calls, answer = _parse(completed.stdout)
+    assert process.stdin and process.stdout
+
+    def send(payload: dict[str, Any]) -> None:
+        process.stdin.write(json.dumps(payload) + "\n")  # type: ignore[union-attr]
+        process.stdin.flush()  # type: ignore[union-attr]
+
+    try:
+        send({"type": "prompt", "message": question})
+        asked_for_stats = False
+        for line in process.stdout:
+            lines.append(line)
+            if time.monotonic() > deadline:
+                break
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # The agent has settled; now ask it what it thinks the session cost.
+            if event.get("type") == "agent_end" and not asked_for_stats:
+                asked_for_stats = True
+                send({"type": "get_session_stats"})
+                continue
+            if event.get("type") == "response" and event.get("command") == "get_session_stats":
+                if event.get("success"):
+                    stats = Stats.from_payload(event.get("data") or {})
+                break
+    finally:
+        with contextlib.suppress(OSError):
+            process.stdin.close()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+        stderr = process.stderr.read() if process.stderr else ""
+
+    stdout = "".join(lines)
+    turns, calls, answer = _parse(stdout)
 
     raw = None
     if keep_raw:
         raw = workdir / f"{arm.key}.jsonl"
-        raw.write_text(completed.stdout, encoding="utf-8")
-        (workdir / f"{arm.key}.stderr").write_text(completed.stderr, encoding="utf-8")
+        raw.write_text(stdout, encoding="utf-8")
+        (workdir / f"{arm.key}.stderr").write_text(stderr, encoding="utf-8")
 
-    return Result(arm=arm.key, answer=answer.strip(), turns=turns, tool_calls=calls, raw=raw)
+    return Result(arm=arm.key, answer=answer.strip(), turns=turns, tool_calls=calls, stats=stats, raw=raw)

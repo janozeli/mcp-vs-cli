@@ -49,9 +49,7 @@ if limit := os.environ.get("N_OPERATIONS"):
     registry = registry.sample(int(limit), seed=0)
 
 server = MCPServer("camara")
-client = httpx.AsyncClient(
-    timeout=60, headers={"Accept": "application/json"}, base_url=registry.base_url
-)
+client = httpx.AsyncClient(timeout=60, headers={"Accept": "application/json"}, base_url=registry.base_url)
 
 
 def _annotation(param: spec.Param) -> Any:
@@ -65,13 +63,9 @@ def _register(operation: spec.Operation) -> None:
     """Give the SDK a function whose signature *is* the operation, so it derives the schema."""
 
     async def call(**arguments: Any) -> str:
-        path_values = {
-            p.name: arguments.pop(p.name) for p in operation.params if p.location == "path"
-        }
+        path_values = {p.name: arguments.pop(p.name) for p in operation.params if p.location == "path"}
         query = {k: v for k, v in arguments.items() if v is not None and v != ""}
-        query = {
-            k: ",".join(str(x) for x in v) if isinstance(v, list) else v for k, v in query.items()
-        }
+        query = {k: ",".join(str(x) for x in v) if isinstance(v, list) else v for k, v in query.items()}
         response = await client.get(operation.render_path(path_values), params=query)
         return response.text
 
@@ -88,9 +82,7 @@ def _register(operation: spec.Operation) -> None:
     call.__annotations__ = {p.name: _annotation(p) for p in operation.params} | {"return": str}
     call.__name__ = operation.name
 
-    description = "\n\n".join(
-        dict.fromkeys(t for t in (operation.summary, operation.description) if t)
-    )
+    description = "\n\n".join(dict.fromkeys(t for t in (operation.summary, operation.description) if t))
     server.add_tool(call, name=operation.name, description=description)
 
 
@@ -101,9 +93,7 @@ for op in registry:
 if __name__ == "__main__":
     if os.environ.get("SHOW_SCHEMAS"):
         tools = asyncio.run(server.list_tools())
-        print(
-            json.dumps([t.model_dump(exclude_none=True) for t in tools], ensure_ascii=False, indent=2)
-        )
+        print(json.dumps([t.model_dump(exclude_none=True) for t in tools], ensure_ascii=False, indent=2))
         sys.exit(0)
     print(f"camara: {len(registry)} operations", file=sys.stderr)
     server.run(transport="stdio")
