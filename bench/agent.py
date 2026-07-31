@@ -61,6 +61,11 @@ class Trial:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     peak_context: int = 0
+    reasoning_tokens: int = 0
+    """Output the model produced to think with. Billed, and it varies by arm — a cell that has to
+    plan its own discovery may reason more than one handed every schema, which would be a result
+    rather than noise. Folded into `completion_tokens` by the provider, so it is pulled out here."""
+
     tool_output_tokens: int = 0
     upfront_tokens: int = 0
     resolved_models: list[str] = field(default_factory=list)
@@ -219,7 +224,8 @@ def run_trial(
             "model": model,
             "messages": messages,
             "tools": tools,
-            "temperature": config.TEMPERATURE,
+            "seed": config.SEED,
+            "parallel_tool_calls": config.PARALLEL_TOOL_CALLS,
         }
         record({"turn": turn, "request": request})
         raw, failure = _complete_with_retry(client, request, record, turn)
@@ -234,6 +240,8 @@ def run_trial(
         prompt_tokens = int(usage.get("prompt_tokens") or 0)
         trial.prompt_tokens += prompt_tokens
         trial.completion_tokens += int(usage.get("completion_tokens") or 0)
+        details = usage.get("completion_tokens_details") or {}
+        trial.reasoning_tokens += int(details.get("reasoning_tokens") or 0)
         trial.peak_context = max(trial.peak_context, prompt_tokens)
 
         choice = raw["choices"][0]["message"]

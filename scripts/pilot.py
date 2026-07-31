@@ -57,7 +57,7 @@ def _summary_table(task_id: str, results: list[Trial]) -> Table:
     table = Table(title=task_id)
     table.add_column("arm")
     table.add_column("ok", justify="center")
-    for column in ("turns", "calls", "upfront", "peak ctx", "prompt Σ", "tool out"):
+    for column in ("turns", "calls", "upfront", "peak ctx", "prompt Σ", "tool out", "reasoning"):
         table.add_column(column, justify="right")
     for trial in results:
         table.add_row(
@@ -69,6 +69,7 @@ def _summary_table(task_id: str, results: list[Trial]) -> Table:
             f"{trial.peak_context:,}",
             f"{trial.prompt_tokens:,}",
             f"{trial.tool_output_tokens:,}",
+            f"{trial.reasoning_tokens:,}",
         )
     return table
 

@@ -23,9 +23,20 @@ SECOND_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"  # 262k context, a secon
 MODELS = (PRIMARY_MODEL, SECOND_MODEL)
 MODEL = PRIMARY_MODEL
 
-# Sampling is fixed across every cell and every trial. Nothing about the comparison should depend on
-# the die roll.
-TEMPERATURE = 0.0
+# Requested on every call, and the same for every cell. A provider is free to ignore it, which is
+# why the invariant says "requested" rather than "guaranteed": the traces record what actually came
+# back, and repeats are what establish the spread.
+SEED = 20260731
+
+# Pinned rather than inherited, because the default varies by provider and this metric is reported.
+# Allowing batched calls makes `turns` and `tool_calls` diverge, and the divergence is a finding: an
+# eager arm can batch calls to tools it already holds, while a deferred arm cannot batch what it has
+# not loaded yet. That asymmetry is real, not an artefact.
+PARALLEL_TOOL_CALLS = True
+
+# Temperature is deliberately not pinned. The models in use reason before answering, and a fixed
+# temperature neither constrains the reasoning path nor is honoured consistently across providers —
+# pinning it would claim a determinism the run does not have.
 
 
 def load_env(path: Path | str = DOTENV) -> dict[str, str]:

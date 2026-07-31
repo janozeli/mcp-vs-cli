@@ -64,13 +64,18 @@ experiment rather than failing a test.
    same bytes. Detecting the problem is honest; a freezer only made it invisible.
 
    A response that did not arrive is never invented. There is nothing behind it to invent from.
-3. **Determinism.** Fixed seeds, temperature 0, sorted iteration order. Operation sampling goes
-   through `Registry.sample(n, keep=..., seed=...)`, never ad-hoc slicing.
+3. **Determinism where it is ours to have, and honesty where it is not.** Everything this repo
+   controls is deterministic: sorted iteration order, and operation sampling through
+   `Registry.sample(n, keep=..., seed=...)` rather than ad-hoc slicing. A seed is *requested* of the
+   model and `parallel_tool_calls` is pinned, because its default varies by provider and turn counts
+   are reported. Temperature is deliberately not pinned: the models reason before answering, so a
+   fixed temperature would claim a determinism the run does not have. What remains is measured —
+   repeats are what establish the spread, not an assumption that there is none.
 4. **Auditable accounting.** Every request and response is written to JSONL with the exact wire
    payload and the provider's native usage numbers. Any published figure must be recomputable from
    `runs/` alone, by someone who does not trust us. `scripts/summarise.py` is the proof that it can.
-5. **No LLM judges.** Task success is decided against ground truth recomputed from the frozen
-   corpus.
+5. **No LLM judges.** Task success is decided against ground truth solved live, by a solver, in
+   the same window as the trial it grades.
 6. **Symmetry of affordance.** Any capability offered to one arm must be equally discoverable and
    equally idiomatic in the others. Where it cannot be, the asymmetry is declared and reported, never
    left to show up in the results as if it were a property of the format. This one is newest and has
@@ -104,7 +109,7 @@ that changes what every arm is generated from.
 - `bench/measure.py` — the static half of the experiment
 - `bench/api.py` — the only way to the API: live, storing nothing
 - `bench/execute.py` — tool calls, command lines and raw URLs, through one code path
-- `bench/tasks.py` — the tasks, their solvers and their pinned answers
+- `bench/tasks.py` — the tasks, their live solvers and their drift references
 - `bench/agent.py` — the trial loop and its traces
 - `scripts/` — deliberate, human-run operations (`uv run python -m scripts.<name>`)
 

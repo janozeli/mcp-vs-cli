@@ -51,4 +51,11 @@ def test_models_are_pinned_not_routed() -> None:
     # A router picks a model per request, which would let two cells run on different models.
     assert all(not m.startswith("openrouter/") for m in config.MODELS)
     assert config.MODEL in config.MODELS
-    assert config.TEMPERATURE == 0.0
+
+
+def test_what_is_pinned_is_pinned_and_nothing_else_is_claimed() -> None:
+    assert isinstance(config.SEED, int)
+    # Pinned because turn counts are reported and the provider default varies.
+    assert config.PARALLEL_TOOL_CALLS is True
+    # Temperature is not pinned on purpose; asserting its absence keeps the decision deliberate.
+    assert not hasattr(config, "TEMPERATURE")
