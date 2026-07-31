@@ -103,8 +103,15 @@ class Cassette:
     def _record(self, key: str, path: str, params: Mapping[str, Any] | None) -> Recorded:
         client = self._client or httpx.Client(timeout=60, headers=HEADERS)
         response = client.get(f"{self.base_url}{path}", params=dict(params or {}))
-        response.raise_for_status()
-        body = response.json()
+
+        # Error responses are recorded too, deliberately. An API that rejects a parameter is part of
+        # what the agent has to deal with -- `/votacoes/{id}/votos` answers 400 to `itens`, and
+        # recovering from that is half of what one task measures. Dropping the failure here would
+        # quietly delete the obstacle.
+        try:
+            body: Any = response.json()
+        except ValueError:
+            body = {"_non_json_body": response.text}
 
         self.directory.mkdir(parents=True, exist_ok=True)
         document = {

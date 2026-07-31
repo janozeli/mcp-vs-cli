@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-07-31T01:10:52Z",
+  "request": {
+    "canonical": "GET /votacoes/2400758-37/votos?itens=600",
+    "method": "GET",
+    "params": {
+      "itens": "600"
+    },
+    "path": "/votacoes/2400758-37/votos"
+  },
+  "response": {
+    "body": {
+      "code": 5,
+      "detail": "Parâmetro(s) inválido(s).",
+      "instance": "itens",
+      "status": 400,
+      "title": "Requisição inválida"
+    },
+    "status": 400
+  }
+}

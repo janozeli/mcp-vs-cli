@@ -20,6 +20,24 @@ ROOT = Path(__file__).resolve().parents[1]
 CASSETTES = ROOT / "data" / "cassettes"
 SPEC = ROOT / "data" / "specs" / "camara-dados-abertos-v2.json"
 
+# Calls no correct solution needs, but a real agent will make anyway: the obvious wrong turns and the
+# obstacles the tasks are built around. Recording them keeps a replayed trial from dying on the first
+# mistake, and keeps the API's own error responses in the corpus where the experiment can see them.
+WRONG_TURNS: tuple[tuple[str, dict[str, object], str], ...] = (
+    (
+        "/votacoes/2400758-37/votos",
+        {"itens": 600},
+        "the endpoint answers 400 to `itens`; recovering from it is half of t4",
+    ),
+    (
+        "/deputados/104552/despesas",
+        {"ano": 2024, "mes": 3},
+        "the un-paginated 15 of 24 records: what t3 looks like when the trap is not noticed",
+    ),
+    ("/deputados", {"siglaUf": "AC"}, "t2 without raising the page size"),
+    ("/deputados", {"nome": "Socorro Neri"}, "t3's lookup without narrowing by state"),
+)
+
 
 def main() -> None:
     registry = spec.load(SPEC)
@@ -30,6 +48,11 @@ def main() -> None:
         answer = task.solver(cassette)
         verdict = "matches" if task.check(str(answer)) else "DIFFERS FROM PINNED"
         print(f"  [{task.difficulty}] {task.id:<28} -> {answer!r}  ({verdict}: {task.answer!r})")
+
+    print("\nwrong turns and obstacles:")
+    for path, params, why in WRONG_TURNS:
+        recorded = cassette.get(path, params)
+        print(f"  {recorded.status}  {path:<38} {why}")
 
     print(f"\n{len(cassette)} calls in the cassette ({cassette.recorded} new, {cassette.hits} reused)")
 
