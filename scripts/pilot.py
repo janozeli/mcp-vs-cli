@@ -1,18 +1,17 @@
-"""Run trials against a model, in one of two modes that must not be confused.
+"""Run trials against a model, live.
 
 Contract: `.claude/contracts/run-trials.md`.
 
-**measure** (the default) replays and mutates nothing. Every cell of a comparison sees the same
-corpus, and a call that was never recorded aborts its trial instead of quietly going to the network.
-This is the only mode whose numbers may be published.
+Nothing is cached and nothing is replayed. Every trial reaches the API as it is at that moment,
+which is what an agent in the wild does. The ground truth is solved live too, immediately before the
+arms run, so "correct" means correct against what the API said during this run rather than against a
+value that was true once.
 
-**discover** is a deliberate act that extends the corpus. Agents explore, so first contact with a
-task reaches for calls no solver ever needed. Recording them is necessary — doing it while measuring
-is not, and it used to happen here: a trial silently extended the corpus mid-experiment, which left
-the cells of one comparison having run against different corpora.
+What that costs: two arms could in principle receive different data, and nobody can re-execute this
+run later. What replaces the guarantee is measurement — every response is in the trace, and
+`scripts/verify_parity.py` checks after the fact whether the arms actually saw the same bytes.
 
-    uv run python -m scripts.pilot t4-sao-paulo-yes-votes --discover   # extend the corpus
-    uv run python -m scripts.pilot t4-sao-paulo-yes-votes              # then measure
+    uv run python -m scripts.pilot t4-sao-paulo-yes-votes
     uv run python -m scripts.pilot t1-civil-name --arm baseline
 """
 
@@ -28,12 +27,14 @@ from rich.table import Table
 
 from bench import config, spec, tasks, triad
 from bench.agent import Trial, run_trial
-from bench.replay import Cassette
+from bench.api import Api
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "data" / "specs" / "camara-dados-abertos-v2.json"
-CASSETTES = ROOT / "data" / "cassettes"
 RUNS = ROOT / "runs"
+
+# The subject is a public service run at public expense; trials are sequential and spaced.
+PAUSE_SECONDS = 0.2
 
 
 def _arms(selector: str) -> list[triad.Arm]:
@@ -49,16 +50,11 @@ def _parse() -> argparse.Namespace:
     )
     parser.add_argument("task", nargs="?", default=tasks.TASKS[0].id, help="task id")
     parser.add_argument("--arm", default="triad", help="`triad`, or one arm key")
-    parser.add_argument(
-        "--discover",
-        action="store_true",
-        help="extend the corpus with whatever the agents reach for; never publish these numbers",
-    )
     return parser.parse_args()
 
 
-def _summary_table(task_id: str, mode: str, results: list[Trial]) -> Table:
-    table = Table(title=f"{task_id} — {mode}")
+def _summary_table(task_id: str, results: list[Trial]) -> Table:
+    table = Table(title=task_id)
     table.add_column("arm")
     table.add_column("ok", justify="center")
     for column in ("turns", "calls", "upfront", "peak ctx", "prompt Σ", "tool out"):
@@ -81,22 +77,23 @@ def main() -> None:
     args = _parse()
     task = tasks.by_id(args.task)
     arms = _arms(args.arm)
-    mode = "discover" if args.discover else "measure"
 
     registry = spec.load(SPEC)
-    cassette = Cassette(CASSETTES, base_url=registry.base_url, mode="record" if args.discover else "replay")
-    before = cassette.fingerprint()
+    api = Api(registry.base_url, pause=PAUSE_SECONDS)
     client = OpenAI(base_url=config.OPENROUTER_BASE_URL, api_key=config.api_key())
-
     console = Console()
-    console.print(f"[bold]{task.id}[/] — {task.question}")
-    console.print(
-        f"expecting [green]{task.answer!r}[/], model [cyan]{config.MODEL}[/], "
-        f"mode [cyan]{mode}[/], corpus [dim]{before}[/] ({len(cassette)} calls)\n"
-    )
 
-    trace_dir = RUNS / mode / task.id
+    console.print(f"[bold]{task.id}[/] — {task.question}")
+    expected = task.solver(api)
+    drifted = not task.check(str(expected))
+    console.print(
+        f"solved live: [green]{expected!r}[/]"
+        + (f"  [red]drifted from the last observed {task.answer!r}[/]" if drifted else "")
+    )
+    console.print(f"model [cyan]{config.MODEL}[/]\n")
+
     results: list[Trial] = []
+    trace_dir = RUNS / task.id
     for arm in arms:
         console.print(f"  running [bold]{arm.key}[/] ({arm.fmt}/{arm.disclosure}/{arm.handling}) …", end="")
         trial = run_trial(
@@ -104,8 +101,9 @@ def main() -> None:
             fmt=arm.fmt,
             disclosure=arm.disclosure,
             handling=arm.handling,
+            expected=expected,
             registry=registry,
-            cassette=cassette,
+            api=api,
             client=client,
             trace_dir=trace_dir,
             max_turns=arm.max_turns,
@@ -114,21 +112,20 @@ def main() -> None:
         results.append(trial)
 
     console.print()
-    console.print(_summary_table(task.id, mode, results))
+    console.print(_summary_table(task.id, results))
     for trial in results:
         console.print(f"  [dim]{trial.arm:<24}[/] {trial.answer[:60] or trial.aborted}")
 
-    after = cassette.fingerprint()
     resolved = sorted({m for t in results for m in t.resolved_models})
     manifest = {
         "task": task.id,
-        "mode": mode,
+        "solved_live": expected,
+        "reference_answer": task.answer,
+        "drifted_from_reference": drifted,
         "model_requested": config.MODEL,
         "models_resolved": resolved,
         "arms": [t.arm for t in results],
-        "corpus_calls": len(cassette),
-        "corpus_before": before,
-        "corpus_after": after,
+        "api_calls": api.calls,
     }
     trace_dir.mkdir(parents=True, exist_ok=True)
     (trace_dir / "manifest.json").write_text(
@@ -136,25 +133,8 @@ def main() -> None:
     )
 
     console.print(f"\n[dim]models the provider actually used: {', '.join(resolved) or 'none'}[/]")
-    console.print(f"[dim]traces and manifest in {trace_dir.relative_to(ROOT)}[/]")
-
-    if mode == "measure":
-        # The whole point of the mode. If this ever trips, the comparison spanned two datasets.
-        assert before == after, "measuring must not change the corpus"
-        misses = [t for t in results if t.aborted and "cassette miss" in t.aborted]
-        if misses:
-            console.print(
-                f"\n[red]{len(misses)} trial(s) hit an unrecorded call.[/] Run the same task with "
-                f"[bold]--discover[/] to extend the corpus, commit the new recordings, then measure "
-                "again."
-            )
-    else:
-        console.print(
-            f"[yellow]corpus extended by {cassette.recorded} call(s)[/] — commit them separately, "
-            "and re-run any measurement that predates this change."
-            if cassette.recorded
-            else "[dim]corpus unchanged; nothing new was reached for[/]"
-        )
+    console.print(f"[dim]{api.calls} API calls · traces and manifest in {trace_dir.relative_to(ROOT)}[/]")
+    console.print("[dim]check the arms saw the same data: uv run python -m scripts.verify_parity[/]")
 
 
 if __name__ == "__main__":

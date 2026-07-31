@@ -1,8 +1,12 @@
-"""Executing what the agent asked for, identically in both formats.
+"""Executing what the agent asked for, identically in every format.
 
-An MCP tool call and the equivalent CLI invocation must reach the same recorded response and return
-the same bytes. If one format pretty-printed and the other did not, the comparison would be partly a
-comparison of `json.dumps` arguments — so serialisation happens in one place, here.
+An MCP tool call, the equivalent CLI invocation and the equivalent raw URL must produce the same
+request and return the same bytes. If one format pretty-printed and the other did not, the
+comparison would be partly a comparison of `json.dumps` arguments — so serialisation happens in one
+place, here.
+
+Nothing is stored between calls. Two arms that ask the same question ask it twice, and whether they
+got the same answer is checked afterwards from the traces rather than guaranteed by a freezer.
 """
 
 from __future__ import annotations
@@ -15,8 +19,8 @@ from urllib.parse import parse_qsl, urlsplit
 
 import jq
 
+from bench.api import Api, canonical_request
 from bench.arms import cli as cli_arm
-from bench.replay import Cassette
 from bench.spec import Operation, Registry
 
 FILTER_ARGUMENT = "_jq"
@@ -35,6 +39,14 @@ class ToolResult:
     ok: bool = True
     http_status: int | None = None
     operation: str | None = None
+
+    request: str | None = None
+    """The resolved request, in the canonical form every format reduces to.
+
+    The three formats spell the same call differently — a tool call, a command line, a URL — so this
+    is what makes them comparable after the fact. Without it, checking whether two arms saw the same
+    bytes would compare spellings and always find nothing.
+    """
 
 
 def _serialise(body: Any) -> str:
@@ -58,13 +70,13 @@ def apply_filter(body: Any, expression: str) -> tuple[str, bool]:
 
 
 def _coerce(value: str) -> Any:
-    """CLI flags arrive as text; tool calls arrive typed. Normalise so both hit the same cache key."""
+    """CLI flags arrive as text and tool calls arrive typed; the wire takes both as text."""
     return value
 
 
 def call_operation(
     registry: Registry,
-    cassette: Cassette,
+    api: Api,
     name: str,
     arguments: dict[str, Any],
     *,
@@ -79,12 +91,12 @@ def call_operation(
 
     arguments = dict(arguments)
     expression = arguments.pop(FILTER_ARGUMENT, None)
-    return _invoke(operation, cassette, arguments, jq_expression=expression)
+    return _invoke(operation, api, arguments, jq_expression=expression)
 
 
 def _invoke(
     operation: Operation,
-    cassette: Cassette,
+    api: Api,
     arguments: dict[str, Any],
     *,
     jq_expression: str | None = None,
@@ -104,35 +116,39 @@ def _invoke(
     }
     query = {k: ",".join(str(x) for x in v) if isinstance(v, list) else v for k, v in query.items()}
 
-    recorded = cassette.get(path, query)
-    ok = 200 <= recorded.status < 300
+    response = api.get(path, query)
+    request = canonical_request("GET", path, query)
+    ok = response.ok
     if jq_expression and ok:
-        text, filtered_ok = apply_filter(recorded.body, jq_expression)
-        return ToolResult(text=text, ok=filtered_ok, http_status=recorded.status, operation=operation.name)
+        text, filtered_ok = apply_filter(response.body, jq_expression)
+        return ToolResult(
+            text=text,
+            ok=filtered_ok,
+            http_status=response.status,
+            operation=operation.name,
+            request=request,
+        )
     return ToolResult(
-        text=_serialise(recorded.body),
+        text=_serialise(response.body),
         ok=ok,
-        http_status=recorded.status,
+        http_status=response.status,
         operation=operation.name,
+        request=request,
     )
 
 
-def fetch_url(
-    registry: Registry, cassette: Cassette, url: str, *, jq_expression: str | None = None
-) -> ToolResult:
+def fetch_url(api: Api, url: str, *, jq_expression: str | None = None) -> ToolResult:
     """Run one GET, as the raw format would.
 
-    The URL is reduced to the same path-and-params key the other formats produce, so a probe and a
-    tool call that mean the same request share one recording. A URL outside the API is refused
-    rather than recorded: the arm is meant to explore this API, not the internet.
+    The URL is reduced to the same path and parameters the other formats produce, so a probe and a
+    tool call that mean the same request become the same request. A URL outside the API is refused:
+    the arm is meant to explore this API, not the internet.
     """
     parsed = urlsplit(url.strip())
-    base = urlsplit(registry.base_url)
+    base = urlsplit(api.base_url)
     if parsed.scheme or parsed.netloc:
         if (parsed.scheme, parsed.netloc) != (base.scheme, base.netloc):
-            return ToolResult(
-                text=f"error: this tool only reaches {registry.base_url}, not {url!r}.", ok=False
-            )
+            return ToolResult(text=f"error: this tool only reaches {api.base_url}, not {url!r}.", ok=False)
         path = parsed.path
     else:
         path = parsed.path if parsed.path.startswith("/") else f"/{parsed.path}"
@@ -141,17 +157,16 @@ def fetch_url(
         path = path[len(base.path) :] or "/"
     params = {key: value for key, value in parse_qsl(parsed.query, keep_blank_values=False)}
 
-    recorded = cassette.get(path, params)
-    ok = 200 <= recorded.status < 300
+    response = api.get(path, params)
+    request = canonical_request("GET", path, params)
+    ok = response.ok
     if jq_expression and ok:
-        text, filtered_ok = apply_filter(recorded.body, jq_expression)
-        return ToolResult(text=text, ok=filtered_ok, http_status=recorded.status)
-    return ToolResult(text=_serialise(recorded.body), ok=ok, http_status=recorded.status)
+        text, filtered_ok = apply_filter(response.body, jq_expression)
+        return ToolResult(text=text, ok=filtered_ok, http_status=response.status, request=request)
+    return ToolResult(text=_serialise(response.body), ok=ok, http_status=response.status, request=request)
 
 
-def run_command(
-    registry: Registry, cassette: Cassette, command: str, *, allow_pipe: bool = False
-) -> ToolResult:
+def run_command(registry: Registry, api: Api, command: str, *, allow_pipe: bool = False) -> ToolResult:
     """Run one `api ...` command line, as the CLI format would.
 
     Supports exactly what the help text promises: `--help` at either level, positional path
@@ -192,7 +207,7 @@ def run_command(
     if error is not None:
         return ToolResult(text=error, ok=False, operation=operation.name)
 
-    return _invoke(operation, cassette, arguments, jq_expression=expression)
+    return _invoke(operation, api, arguments, jq_expression=expression)
 
 
 def _split_pipe(tokens: list[str], *, allow_pipe: bool) -> tuple[list[str], str | None, str | None]:

@@ -6,9 +6,14 @@ Connecting an MCP server can put every one of its tool schemas into the request 
 read a word of your task, and most servers hand back whole response objects once it starts working.
 Give the agent a CLI instead and it starts from nothing — but it spends turns on `--help`.
 
-That trade gets argued about constantly and measured rarely. This repo measures it, against a real
-public API, reproducibly, with every request and response kept on disk so the numbers can be
-recomputed by someone who does not trust them.
+That trade gets argued about constantly and measured rarely. This repo measures it against a real
+public API, live, with every request and response kept on disk so the numbers can be recomputed by
+someone who does not trust them.
+
+**Nothing about the API is cached.** No recorded corpus, no fixtures standing in for real responses:
+every trial reaches the service as it is at that moment, which is what an agent in the wild does,
+and ground truth is solved live in the same window as the trial it grades. The cost is stated rather
+than engineered away — see *Caveats*.
 
 ## The comparison people actually mean
 
@@ -33,9 +38,9 @@ knows. The `mcp/filtered` cell is the well-designed server, not a straw man.
 the Brazilian Chamber of Deputies' open-data API: OpenAPI 3.0.1, 78 operations across 11 tag groups,
 no authentication, real relational data. Chosen for size — enough operations to scale N over a real
 curve — and for obscurity at the record level: a model cannot answer *which deputy filed which bill*
-from memory, so the arms have to use the tools. The spec is vendored under [`data/specs/`](data/specs)
-with its source URL, fetch date and sha256; responses are frozen in [`data/cassettes/`](data/cassettes)
-so every cell replays identical bytes and the repo runs offline.
+from memory, so the arms have to use the tools. The OpenAPI document is vendored under
+[`data/specs/`](data/specs) with its source URL, fetch date and sha256, because every arm is
+generated from it. The API's *responses* are not vendored anywhere.
 
 ## Static result: disclosure dominates format
 
@@ -58,9 +63,9 @@ help text would have handed that format a win by construction.
 
 ## Run-time result: what a whole payload costs
 
-Five tasks run against the frozen corpus, graded programmatically against ground truth recomputed
-from the same corpus — no LLM judge. Task 4 asks how many São Paulo deputies voted "Sim" in one
-vote; the response is 366 nested records and about 150 kB.
+Five tasks run against the live API, graded programmatically against ground truth solved in the
+same window — no LLM judge. Task 4 asks how many São Paulo deputies voted "Sim" in one vote; the
+response is 366 nested records and about 150 kB.
 
 Model `deepseek/deepseek-v4-flash`, temperature 0, one trial per cell:
 
@@ -100,6 +105,8 @@ publishes what held up is not reporting, it is advertising.
 - **Deferred-cell numbers for tasks 1–3.** The harness let those cells call tools they had never
   loaded, which made `indexed` behave as "eager without paying for the schemas". Fixed; those runs
   are being redone. Eager and CLI numbers are unaffected.
+- **Every run above predates the move to a live API**, and was made against a frozen corpus that no
+  longer exists. They stand as evidence of what the harness did, not as measurements to cite.
 
 Two of the three were found by reading the traces rather than by reasoning about the code.
 
@@ -114,6 +121,14 @@ Two of the three were found by reading the traces rather than by reasoning about
   `--help` and `| jq`; `tool_search` with a `select:` form is a protocol invented here and learned
   in-context. Part of what "CLI format" measures is prior exposure. This is not removable inside the
   experiment — and arguably it is a real advantage rather than an artefact.
+- **Two arms can receive different data.** With nothing cached, the API can move between one trial
+  and the next. This is not prevented; it is measured. Every response is in the trace, and
+  `scripts/verify_parity.py` reports any request that two arms made and got different bytes for. A
+  run whose parity check is dirty is reported as such rather than quietly averaged.
+- **A past run cannot be re-executed by anyone, including us.** Auditing survives — the traces hold
+  the exact responses, so any published figure can still be recomputed and disputed. Re-collection
+  does not. That is the price of not keeping a copy of someone else's data, and it is the trade this
+  project chose deliberately.
 - **Static counts are estimates.** Computed offline with `o200k_base`. Run-time accounting uses the
   provider's own reported usage.
 - **Window occupied ≠ dollars.** Caching makes repeated schemas cheap to *bill* without making them
@@ -121,21 +136,25 @@ Two of the three were found by reading the traces rather than by reasoning about
 
 ## Reproduce
 
+The static half needs no network and no key:
+
 ```bash
 uv sync && uv run python -m bench.measure
 ```
 
-Everything above except the model runs is offline. The run-time half needs an
-[OpenRouter](https://openrouter.ai/keys) key in `.env` (see `.env.example`):
+The run-time half reaches the live API, and needs an [OpenRouter](https://openrouter.ai/keys) key in
+`.env` (see `.env.example`):
 
 ```bash
+uv run python -m scripts.check_ground_truth
 uv run python -m scripts.pilot t4-sao-paulo-yes-votes
 ```
 
-Recompute a run's numbers from its traces alone, which is the check a sceptic would want:
+Then the two checks that replace what a frozen corpus used to guarantee — recompute the numbers from
+the traces alone, and confirm the arms saw the same data:
 
 ```bash
-uv run python -m scripts.summarise runs/pilot
+uv run python -m scripts.summarise runs && uv run python -m scripts.verify_parity
 ```
 
 Quality gate:
@@ -158,11 +177,15 @@ uv run ruff check . && uv run mypy bench && uv run pytest
 - **Transport parameters are hidden.** The spec declares an `Accept` header on all 78 operations;
   exposing it would let the agent request XML and break parsing for reasons unrelated to the
   comparison. Filtered once, in the registry, so every cell inherits it.
-- **Errors are part of the corpus.** `/votacoes/{id}/votos` answers 400 to `itens`, and recovering
-  from that is half of what one task measures. The cassette records failures as faithfully as
-  successes.
-- **A miss aborts the trial.** An unrecorded call is never invented; a run built on fabricated data
-  would be worse than no run.
+- **Errors are data.** `/votacoes/{id}/votos` answers 400 to `itens`, and recovering from that is
+  half of what one task measures. An error response is returned to the agent, never swallowed.
+- **A response that did not arrive is never invented.** With nothing cached behind it, it is simply
+  gone, and the trial aborts.
+- **The tests do not touch the network.** They check this repository against hand-written payloads in
+  `tests/conftest.py` — a stub, not a recording, and deliberately not the real values. Whether the
+  world still says what the tasks expect is a separate, live question, asked by
+  `scripts/check_ground_truth.py`. A suite that fails for external reasons is a suite people learn
+  to ignore.
 - **Provider capacity errors are retried, not scored.** Free endpoints answer HTTP 200 with
   `choices: null` when they are out of workers. A trial that landed on a busy worker says nothing
   about the arm it was measuring.
@@ -171,11 +194,11 @@ uv run ruff check . && uv run mypy bench && uv run pytest
 
 - [x] OpenAPI → operation registry, every cell generated from it
 - [x] Static context cost across the design and across N
-- [x] Record-replay corpus, so every cell replays identical bytes
-- [x] Five tasks with ground truth recomputed from the corpus
+- [x] Live API access with no stored responses anywhere, and parity measured after the fact
+- [x] Five tasks with ground truth solved live in the same window as the trial
 - [x] Agent loop with full request/response traces
 - [x] Result-handling axis (whole vs filtered)
+- [ ] Re-run everything against the live API; the published numbers above predate it
 - [ ] Repeats, to get past the 22% single-trial spread
-- [ ] Re-run tasks 1–3 with the deferred-cell fix in place
 - [ ] Retest the projection parameter under a name that does not read as private
 - [ ] Task 5, and the second model tier

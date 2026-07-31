@@ -1,12 +1,14 @@
 """The loop is what produces every published number, so it is tested against a scripted provider.
 
-No network, no key: a stub client hands back completions written here, which makes it possible to
-assert the things that actually matter — that deferred loading really defers, that an unrecorded call
-aborts instead of being invented, and that a busy provider is retried rather than scored.
+No network and no key: a stub model hands back completions written here, and a stub API hands back
+payloads written in conftest. That makes it possible to assert the things that actually matter —
+that deferred loading really defers, that an unreachable API aborts instead of being invented, and
+that a busy provider is retried rather than scored.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +16,10 @@ import httpx
 import pytest
 
 from bench import agent, spec, tasks
-from bench.replay import Cassette
+from bench.api import Api
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "data" / "specs" / "camara-dados-abertos-v2.json"
-CASSETTES = ROOT / "data" / "cassettes"
 
 
 class _Completion:
@@ -90,32 +91,19 @@ def registry() -> spec.Registry:
     return spec.load(SPEC)
 
 
-@pytest.fixture
-def cassette() -> Cassette:
-    def refuse(request: httpx.Request) -> httpx.Response:
-        raise AssertionError(f"trials must replay, but tried to reach {request.url}")
-
-    return Cassette(
-        CASSETTES,
-        base_url="https://dadosabertos.camara.leg.br/api/v2",
-        mode="replay",
-        client=httpx.Client(transport=httpx.MockTransport(refuse)),
-    )
-
-
-def _run(task_id: str, script: list[dict[str, Any]], registry: spec.Registry, cassette: Cassette, **kw: Any):
+def _run(task_id: str, script: list[dict[str, Any]], registry: spec.Registry, api: Api, **kw: Any):
     client = StubClient(script)
     trial = agent.run_trial(
         tasks.by_id(task_id),
         registry=registry,
-        cassette=cassette,
+        api=api,
         client=client,  # type: ignore[arg-type]
         **kw,
     )
     return trial, client
 
 
-def test_a_correct_answer_is_scored(registry: spec.Registry, cassette: Cassette) -> None:
+def test_a_correct_answer_is_scored(registry: spec.Registry, api: Api) -> None:
     trial, _ = _run(
         "t1-civil-name",
         [
@@ -123,7 +111,7 @@ def test_a_correct_answer_is_scored(registry: spec.Registry, cassette: Cassette)
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure="eager",
     )
@@ -134,19 +122,17 @@ def test_a_correct_answer_is_scored(registry: spec.Registry, cassette: Cassette)
     assert trial.peak_context == 500, "peak is the largest single prompt, not their sum"
 
 
-def test_a_wrong_answer_is_not(registry: spec.Registry, cassette: Cassette) -> None:
-    trial, _ = _run(
-        "t1-civil-name", [_text("Someone Else")], registry, cassette, fmt="mcp", disclosure="eager"
-    )
+def test_a_wrong_answer_is_not(registry: spec.Registry, api: Api) -> None:
+    trial, _ = _run("t1-civil-name", [_text("Someone Else")], registry, api, fmt="mcp", disclosure="eager")
     assert not trial.success
 
 
-def test_eager_sends_every_schema_on_the_first_turn(registry: spec.Registry, cassette: Cassette) -> None:
-    _, client = _run("t1-civil-name", [_text("x")], registry, cassette, fmt="mcp", disclosure="eager")
+def test_eager_sends_every_schema_on_the_first_turn(registry: spec.Registry, api: Api) -> None:
+    _, client = _run("t1-civil-name", [_text("x")], registry, api, fmt="mcp", disclosure="eager")
     assert len(client.requests[0]["tools"]) == len(registry)
 
 
-def test_deferred_starts_with_one_tool_and_grows(registry: spec.Registry, cassette: Cassette) -> None:
+def test_deferred_starts_with_one_tool_and_grows(registry: spec.Registry, api: Api) -> None:
     trial, client = _run(
         "t1-civil-name",
         [
@@ -156,7 +142,7 @@ def test_deferred_starts_with_one_tool_and_grows(registry: spec.Registry, casset
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure="lazy",
     )
@@ -189,7 +175,7 @@ def test_selecting_an_unknown_tool_says_so(registry: spec.Registry) -> None:
 
 @pytest.mark.parametrize("disclosure", ["indexed", "lazy"])
 def test_a_deferred_cell_refuses_a_tool_it_never_loaded(
-    registry: spec.Registry, cassette: Cassette, disclosure: str
+    registry: spec.Registry, api: Api, disclosure: str
 ) -> None:
     """Otherwise the cell is 'eager without paying for the schemas', which nobody can deploy.
 
@@ -205,7 +191,7 @@ def test_a_deferred_cell_refuses_a_tool_it_never_loaded(
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure=disclosure,
         trace_dir=None,
@@ -214,7 +200,7 @@ def test_a_deferred_cell_refuses_a_tool_it_never_loaded(
     assert trial.turns == 4, "the unloaded call costs a turn rather than being served"
 
 
-def test_an_eager_cell_needs_no_loading(registry: spec.Registry, cassette: Cassette) -> None:
+def test_an_eager_cell_needs_no_loading(registry: spec.Registry, api: Api) -> None:
     trial, _ = _run(
         "t1-civil-name",
         [
@@ -222,37 +208,41 @@ def test_an_eager_cell_needs_no_loading(registry: spec.Registry, cassette: Casse
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure="eager",
     )
     assert trial.success and trial.turns == 2
 
 
-def test_the_cli_format_never_sends_more_than_one_tool(registry: spec.Registry, cassette: Cassette) -> None:
+def test_the_cli_format_never_sends_more_than_one_tool(registry: spec.Registry, api: Api) -> None:
     for disclosure in ("eager", "indexed", "lazy"):
-        _, client = _run("t1-civil-name", [_text("x")], registry, cassette, fmt="cli", disclosure=disclosure)
+        _, client = _run("t1-civil-name", [_text("x")], registry, api, fmt="cli", disclosure=disclosure)
         tools = client.requests[0]["tools"]
         assert [t["function"]["name"] for t in tools] == ["run_cli"]
 
 
-def test_an_unrecorded_call_aborts_rather_than_being_invented(
-    registry: spec.Registry, cassette: Cassette
-) -> None:
+def test_an_unreachable_api_aborts_rather_than_being_invented(registry: spec.Registry) -> None:
+    """Nothing is cached, so a response that did not arrive is gone. Inventing one would be worse."""
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("network down", request=request)
+
+    dead = Api("https://api.example.test/v2", client=httpx.Client(transport=httpx.MockTransport(refuse)))
     trial, _ = _run(
         "t1-civil-name",
-        [_tool_call("camara__get_deputados", '{"id": 999999999}'), _text("made up")],
+        [_tool_call("camara__get_deputados", '{"id": 204554}'), _text("made up")],
         registry,
-        cassette,
+        dead,
         fmt="mcp",
         disclosure="eager",
     )
     assert not trial.success
-    assert trial.aborted is not None and "cassette miss" in trial.aborted
+    assert trial.aborted is not None and "api unreachable" in trial.aborted
 
 
 def test_a_busy_provider_is_retried_not_scored(
-    registry: spec.Registry, cassette: Cassette, monkeypatch: pytest.MonkeyPatch
+    registry: spec.Registry, api: Api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(agent, "BACKOFF_SECONDS", (0, 0))
     trial, _ = _run(
@@ -263,7 +253,7 @@ def test_a_busy_provider_is_retried_not_scored(
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure="eager",
     )
@@ -271,33 +261,36 @@ def test_a_busy_provider_is_retried_not_scored(
 
 
 def test_a_permanent_error_is_not_retried(
-    registry: spec.Registry, cassette: Cassette, monkeypatch: pytest.MonkeyPatch
+    registry: spec.Registry, api: Api, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(agent, "BACKOFF_SECONDS", (0, 0))
     trial, client = _run(
-        "t1-civil-name", [_error("invalid model")], registry, cassette, fmt="mcp", disclosure="eager"
+        "t1-civil-name", [_error("invalid model")], registry, api, fmt="mcp", disclosure="eager"
     )
     assert not trial.success
     assert len(client.requests) == 1
     assert trial.aborted is not None and "invalid model" in trial.aborted
 
 
-def test_a_looping_agent_is_cut_off(registry: spec.Registry, cassette: Cassette) -> None:
+def test_a_looping_agent_is_cut_off(registry: spec.Registry, api: Api) -> None:
     script = [_tool_call("camara__get_deputados", '{"id": 204554}', call_id=f"c{i}") for i in range(4)]
-    trial, _ = _run("t1-civil-name", script, registry, cassette, fmt="mcp", disclosure="eager", max_turns=3)
+    trial, _ = _run("t1-civil-name", script, registry, api, fmt="mcp", disclosure="eager", max_turns=3)
     assert not trial.success
     assert trial.aborted is not None and "gave up" in trial.aborted
 
 
-def test_the_trace_records_every_request(registry: spec.Registry, cassette: Cassette, tmp_path: Path) -> None:
+def test_the_trace_records_every_request(registry: spec.Registry, api: Api, tmp_path: Path) -> None:
     trial, _ = _run(
         "t1-civil-name",
         [_tool_call("camara__get_deputados", '{"id": 204554}'), _text("JOSE ABILIO SILVA DE SANTANA")],
         registry,
-        cassette,
+        api,
         fmt="mcp",
         disclosure="eager",
         trace_dir=tmp_path,
     )
-    lines = Path(trial.trace).read_text(encoding="utf-8").strip().splitlines()
+    lines = [json.loads(line) for line in Path(trial.trace).read_text(encoding="utf-8").splitlines()]
     assert len(lines) >= 4, "each turn writes its request and its response, plus every tool call"
+    # Without a corpus, the trace is the only place a response survives.
+    outputs = [e for e in lines if "output" in e]
+    assert outputs and all(e["output"] for e in outputs), "tool output bytes must be in the trace"

@@ -19,15 +19,16 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+import httpx
 from openai import OpenAI
 
 from bench import config, tokens
+from bench.api import Api
 from bench.arms import Disclosure, Handling
 from bench.arms import cli as cli_arm
 from bench.arms import mcp as mcp_arm
 from bench.arms import raw as raw_arm
 from bench.execute import call_operation, fetch_url, run_command
-from bench.replay import Cassette, CassetteMiss
 from bench.spec import Registry
 from bench.tasks import Task
 
@@ -171,14 +172,19 @@ def run_trial(
     fmt: str,
     disclosure: Disclosure,
     registry: Registry,
-    cassette: Cassette,
+    api: Api,
     client: OpenAI,
     handling: Handling = "whole",
+    expected: str | float | None = None,
     model: str = config.MODEL,
     trace_dir: Path | None = None,
     max_turns: int = MAX_TURNS,
 ) -> Trial:
-    """Run one task in one cell, writing a full transcript as it goes."""
+    """Run one task in one cell, writing a full transcript as it goes.
+
+    `expected` is the value a live solve produced for this run. Without it the task's last observed
+    value is used, which is a fallback and not a guarantee — the API may have moved since.
+    """
     filtering = handling == "filtered"
     deferred = fmt == "mcp" and disclosure != "eager"
     arm = f"{fmt}/{disclosure}/{handling}"
@@ -236,7 +242,8 @@ def run_trial(
 
         if not calls:
             trial.answer = (choice.get("content") or "").strip()
-            trial.success = task.check(trial.answer)
+            # Graded against what the API said in this run, when the caller solved it live.
+            trial.success = task.check(trial.answer, expected)
             return trial
 
         for call in calls:
@@ -248,16 +255,31 @@ def run_trial(
             trial.tool_calls += 1
 
             try:
-                output = _dispatch(registry, cassette, fmt, name, arguments, loaded, filtering, deferred)
-            except CassetteMiss as miss:
-                # Never fabricate a response: an unrecorded call means the corpus is incomplete, and
-                # a run built on invented data would be worse than no run.
-                trial.aborted = f"cassette miss on turn {turn}: {miss}"
+                output, resolved = _dispatch(
+                    registry, api, fmt, name, arguments, loaded, filtering, deferred
+                )
+            except httpx.HTTPError as exc:
+                # Never fabricate a response. With nothing stored behind it, a response that did not
+                # arrive is gone for good, and a run built on invented data is worse than no run.
+                trial.aborted = f"api unreachable on turn {turn}: {type(exc).__name__}: {exc}"
                 record({"turn": turn, "tool_call": call, "error": trial.aborted})
                 return trial
 
-            trial.tool_output_tokens += tokens.count_text(output)
-            record({"turn": turn, "tool_call": call, "output_tokens": tokens.count_text(output)})
+            output_tokens = tokens.count_text(output)
+            trial.tool_output_tokens += output_tokens
+            # The output text is stored, not just its size. Nothing caches these responses, so the
+            # trace is the only record that this one ever existed — invariant 4 now rests on it. The
+            # resolved request is stored beside it, because that is the only form in which the three
+            # formats' calls can be compared afterwards.
+            record(
+                {
+                    "turn": turn,
+                    "tool_call": call,
+                    "request": resolved,
+                    "output_tokens": output_tokens,
+                    "output": output,
+                }
+            )
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": output})
 
     trial.aborted = f"gave up after {max_turns} turns"
@@ -331,40 +353,49 @@ def _complete_with_retry(
 
 def _dispatch(
     registry: Registry,
-    cassette: Cassette,
+    api: Api,
     fmt: str,
     name: str,
     arguments: dict[str, Any],
     loaded: set[str],
     filtering: bool = False,
     deferred: bool = False,
-) -> str:
+) -> tuple[str, str | None]:
+    """Returns what the model sees, and the resolved request that produced it.
+
+    The second value is what makes the formats comparable afterwards: each spells a call its own
+    way, and only the resolved request is the same object across all three.
+    """
     if fmt == "raw":
         if name != "http_get":
-            return f"error: no such tool {name!r}"
-        return fetch_url(
-            registry,
-            cassette,
+            return f"error: no such tool {name!r}", None
+        result = fetch_url(
+            api,
             str(arguments.get("url", "")),
             jq_expression=arguments.get("_jq") if filtering else None,
-        ).text
+        )
+        return result.text, result.request
     if fmt == "cli":
         if name != "run_cli":
-            return f"error: no such tool {name!r}"
+            return f"error: no such tool {name!r}", None
         command = str(arguments.get("command", ""))
-        return run_command(registry, cassette, command, allow_pipe=filtering).text
+        result = run_command(registry, api, command, allow_pipe=filtering)
+        return result.text, result.request
     if name == "tool_search":
         text, _ = _search(registry, str(arguments.get("query", "")), loaded, filtering)
-        return text
+        return text, None
     if deferred and _strip_prefix(name) not in loaded:
         # A deferred client cannot execute a tool it never sent a definition for. Running it anyway
         # turned this cell into "eager without paying for the schemas", which is not a configuration
         # anyone can actually deploy -- and it let a model that had merely read the index skip the
         # round trip the cell exists to measure.
         return (
-            f"error: {name} is not loaded. Load its definition first with tool_search(query='select:{name}')."
+            f"error: {name} is not loaded. Load its definition first with "
+            f"tool_search(query='select:{name}').",
+            None,
         )
-    return call_operation(registry, cassette, name, arguments, prefix=PREFIX).text
+    result = call_operation(registry, api, name, arguments, prefix=PREFIX)
+    return result.text, result.request
 
 
 def summarise(trial: Trial) -> dict[str, Any]:

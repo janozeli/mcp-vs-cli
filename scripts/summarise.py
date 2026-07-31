@@ -4,7 +4,7 @@ The point of writing every request and response to disk is that the summary shou
 copy of the truth. This reads nothing but the JSONL and recomputes what the pilot printed, which is
 the check that a sceptic could do the same.
 
-    uv run python -m scripts.summarise runs/measure
+    uv run python -m scripts.summarise runs
 """
 
 from __future__ import annotations
@@ -46,19 +46,18 @@ def _provenance(task_dir: Path) -> str:
     """What the run says about itself, so a table is never read without knowing what produced it."""
     manifest_path = task_dir / "manifest.json"
     if not manifest_path.exists():
-        return "[yellow]no manifest — predates run provenance; corpus and model unverifiable[/]"
+        return "[yellow]no manifest — the model and the live answer are unverifiable for this run[/]"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     resolved = ", ".join(manifest.get("models_resolved") or []) or "unknown"
     note = ""
-    if manifest.get("mode") != "measure":
-        note = "  [red]discover mode — not publishable[/]"
-    if manifest.get("corpus_before") != manifest.get("corpus_after"):
-        note += "  [red]corpus changed mid-run[/]"
-    return f"[dim]corpus {manifest.get('corpus_after')} · model {resolved}[/]{note}"
+    if manifest.get("drifted_from_reference"):
+        note = "  [yellow]the live answer differs from the recorded reference[/]"
+    solved = manifest.get("solved_live")
+    return f"[dim]solved live: {solved!r} · model {resolved} · {manifest.get('api_calls')} API calls[/]{note}"
 
 
 def main() -> None:
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "runs" / "measure"
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "runs"
     console = Console()
     for task_dir in sorted(p for p in root.iterdir() if p.is_dir()):
         table = Table(title=task_dir.name, caption=_provenance(task_dir))

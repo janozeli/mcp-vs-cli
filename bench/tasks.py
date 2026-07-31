@@ -1,9 +1,11 @@
-"""Five questions over the frozen corpus, from trivial to genuinely hard.
+"""Five questions about a live API, from trivial to genuinely hard.
 
-Every task carries a solver that recomputes its answer from the cassette, and the pinned answer is
-tested against that solver. Nothing here is a number someone once typed and hoped stayed true: if the
-corpus is re-recorded and the data moved, the test fails instead of the benchmark quietly grading
-against a stale key.
+Every task carries a solver that computes its answer from the API in the same window as the trial it
+grades. Nothing is frozen, so nothing can go quietly stale: what "correct" means is whatever the API
+said during this run.
+
+`answer` is the value last observed. It is no longer the grading key — it is a drift signal, checked
+by `scripts/check_ground_truth.py`, and the fallback when a caller has not solved live.
 
 The difficulty gradient is deliberate. A one-call lookup and a four-hop aggregation stress completely
 different things — the cheap task says whether an arm works at all, the expensive one says what the
@@ -19,9 +21,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from bench.replay import Cassette
+from bench.api import Api
 
-Solver = Callable[[Cassette], Any]
+Solver = Callable[[Api], Any]
 
 
 def _normalise(text: str) -> str:
@@ -53,13 +55,16 @@ def _numbers(text: str) -> list[float]:
 
 @dataclass(frozen=True, slots=True)
 class Task:
-    """One question, its pinned answer, and the operations needed to reach it."""
+    """One question, a solver that answers it live, and the operations needed to reach it."""
 
     id: str
     difficulty: int
     question: str
     requires: tuple[str, ...]
+
     answer: str | float
+    """The value last observed. A drift reference, not the grading key."""
+
     solver: Solver
     why_this_hard: str
     tolerance: float = 0.0
@@ -69,57 +74,58 @@ class Task:
     def is_numeric(self) -> bool:
         return isinstance(self.answer, (int, float)) and not isinstance(self.answer, bool)
 
-    def check(self, response: str) -> bool:
-        """Grade a free-text response against the pinned answer.
+    def check(self, response: str, expected: str | float | None = None) -> bool:
+        """Grade a free-text response against what the API said, falling back to the last known value.
 
         Deliberately not an LLM judge. Models are asked for the value alone, so this looks for the
         value: a numeric answer must appear as a number, a textual one as a substring. The failure
         mode is a false positive when a model pads its reply with unrelated figures, which is why the
         prompt asks for the final value only.
         """
-        if self.is_numeric:
-            target = float(self.answer)
+        target_value = self.answer if expected is None else expected
+        if isinstance(target_value, (int, float)) and not isinstance(target_value, bool):
+            target = float(target_value)
             return any(abs(n - target) <= self.tolerance for n in _numbers(response))
-        candidates = (str(self.answer), *self.aliases)
+        candidates = (str(target_value), *self.aliases)
         haystack = _normalise(response)
         return any(_normalise(c) in haystack for c in candidates)
 
 
 # --- solvers ------------------------------------------------------------------------------------
-# Each one makes exactly the calls a correct agent would have to make, which is also how the corpus
-# gets recorded: running the solvers in record mode guarantees the cassette covers the happy path.
+# Each one makes exactly the calls a correct agent would have to make, against the same live API the
+# trial is about to use.
 
 
-def _solve_deputy_civil_name(cassette: Cassette) -> str:
-    body = cassette.get("/deputados/204554").body
+def _solve_deputy_civil_name(api: Api) -> str:
+    body = api.get("/deputados/204554").body
     return str(body["dados"]["nomeCivil"])
 
 
-def _solve_acre_headcount(cassette: Cassette) -> int:
-    body = cassette.get("/deputados", {"siglaUf": "AC", "itens": 100}).body
+def _solve_acre_headcount(api: Api) -> int:
+    body = api.get("/deputados", {"siglaUf": "AC", "itens": 100}).body
     return len(body["dados"])
 
 
-def _solve_march_expenses(cassette: Cassette) -> float:
-    found = cassette.get("/deputados", {"nome": "Socorro Neri", "siglaUf": "AC"}).body
+def _solve_march_expenses(api: Api) -> float:
+    found = api.get("/deputados", {"nome": "Socorro Neri", "siglaUf": "AC"}).body
     deputy_id = found["dados"][0]["id"]
     # 24 records against a default page size of 15: the total is only right if the agent noticed.
-    body = cassette.get(f"/deputados/{deputy_id}/despesas", {"ano": 2024, "mes": 3, "itens": 100}).body
+    body = api.get(f"/deputados/{deputy_id}/despesas", {"ano": 2024, "mes": 3, "itens": 100}).body
     return round(sum(float(item["valorLiquido"]) for item in body["dados"]), 2)
 
 
-def _solve_sao_paulo_yes_votes(cassette: Cassette) -> int:
-    body = cassette.get("/votacoes/2400758-37/votos").body
+def _solve_sao_paulo_yes_votes(api: Api) -> int:
+    body = api.get("/votacoes/2400758-37/votos").body
     return sum(1 for v in body["dados"] if v["tipoVoto"] == "Sim" and v["deputado_"]["siglaUf"] == "SP")
 
 
-def _solve_session_party_with_most_no_votes(cassette: Cassette) -> str:
-    votacao = cassette.get("/votacoes/2400758-37").body["dados"]
+def _solve_session_party_with_most_no_votes(api: Api) -> str:
+    votacao = api.get("/votacoes/2400758-37").body["dados"]
     event_id = votacao["idEvento"]
-    siblings = cassette.get(f"/eventos/{event_id}/votacoes").body["dados"]
+    siblings = api.get(f"/eventos/{event_id}/votacoes").body["dados"]
     tally: Counter[str] = Counter()
     for sibling in siblings:
-        votes = cassette.get(f"/votacoes/{sibling['id']}/votos").body.get("dados") or []
+        votes = api.get(f"/votacoes/{sibling['id']}/votos").body.get("dados") or []
         for vote in votes:
             if vote["tipoVoto"] == "Não":
                 tally[vote["deputado_"]["siglaPartido"]] += 1

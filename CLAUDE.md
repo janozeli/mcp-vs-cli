@@ -36,7 +36,7 @@ meant to be imported or deployed. It exists to produce numbers that a stranger c
 | --- | --- | --- |
 | adding or changing a format, disclosure level or handling mode | [`.claude/contracts/add-arm.md`](.claude/contracts/add-arm.md) | `bench/arms/`, `bench/triad.py` |
 | adding or changing a benchmark task | [`.claude/contracts/add-task.md`](.claude/contracts/add-task.md) | `bench/tasks.py` |
-| running trials against a model | [`.claude/contracts/run-trials.md`](.claude/contracts/run-trials.md) | `scripts/pilot.py`, `data/cassettes/` |
+| running trials against a model | [`.claude/contracts/run-trials.md`](.claude/contracts/run-trials.md) | `scripts/pilot.py`, `bench/api.py` |
 | turning traces into a published claim | [`.claude/contracts/report-findings.md`](.claude/contracts/report-findings.md) | `README.md` |
 | anything that changes what an arm can reach or discover | [`.claude/reference/arm-symmetry.md`](.claude/reference/arm-symmetry.md) | anything |
 
@@ -54,9 +54,16 @@ experiment rather than failing a test.
    `Operation`s. Every cell is *generated* from that registry. Never hand-write a tool schema or a
    CLI subcommand — if the cells can drift, the experiment compares implementations instead of
    exposure. Deferring a description must never hide a capability.
-2. **Identical responses across arms.** All API access goes through the record-replay cassette. Two
-   arms running the same task must see byte-identical payloads. A trial in replay mode never touches
-   the network, and a miss aborts the trial rather than inventing a response.
+2. **Nothing about the API is stored for reuse.** No cache, no recorded corpus, no fixtures standing
+   in for real responses. Every trial reaches the live API, which is what an agent in the wild does,
+   and ground truth is solved live in the same window as the trial it grades.
+
+   This gives up a guarantee, and the trade is deliberate: two arms could in principle receive
+   different data. What replaces it is measurement — every response is written to the trace
+   verbatim, and `scripts/verify_parity.py` checks after the fact whether the arms actually saw the
+   same bytes. Detecting the problem is honest; a freezer only made it invisible.
+
+   A response that did not arrive is never invented. There is nothing behind it to invent from.
 3. **Determinism.** Fixed seeds, temperature 0, sorted iteration order. Operation sampling goes
    through `Registry.sample(n, keep=..., seed=...)`, never ad-hoc slicing.
 4. **Auditable accounting.** Every request and response is written to JSONL with the exact wire
@@ -76,12 +83,15 @@ experiment rather than failing a test.
 Run artifacts. Regenerable, never hand-edited, and never cited as evidence of anything except what
 the run did.
 
-- `runs/` — raw JSONL traces, one file per trial. Gitignored.
-- `data/cassettes/` — recorded API responses. Committed, because the repo must run offline, but
-  extended only through the recording contract, never by hand.
+- `runs/<task>/*.jsonl` — one trace per trial, holding every request and every response verbatim.
+  Gitignored. Since nothing caches API data, these are the only record that a response existed:
+  invariant 4 rests on them, and so does checking parity between arms.
+- `runs/<task>/manifest.json` — what the run solved live, which model answered, how many API calls
+  it cost.
 
 `data/specs/` is **not** Layer 4. It is a frozen reference with provenance (`*.meta.json`: source
-URL, fetch date, sha256), and re-fetching it is a deliberate act that invalidates ground truth.
+URL, fetch date, sha256) — the OpenAPI document, not API data. Re-fetching it is a deliberate act
+that changes what every arm is generated from.
 
 ---
 
@@ -92,8 +102,8 @@ URL, fetch date, sha256), and re-fetching it is a deliberate act that invalidate
 - `bench/triad.py` — level zero: the unoptimised default of each format
 - `bench/design.py` — the crossing, and what each cell costs in context
 - `bench/measure.py` — the static half of the experiment
-- `bench/replay.py` — the record-replay cassette
-- `bench/execute.py` — tool calls and command lines, through one code path
+- `bench/api.py` — the only way to the API: live, storing nothing
+- `bench/execute.py` — tool calls, command lines and raw URLs, through one code path
 - `bench/tasks.py` — the tasks, their solvers and their pinned answers
 - `bench/agent.py` — the trial loop and its traces
 - `scripts/` — deliberate, human-run operations (`uv run python -m scripts.<name>`)

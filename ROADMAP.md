@@ -47,12 +47,12 @@ A step-by-step walkthrough of the ladder, showing what each cheap optimisation r
 
 ## Instrumentation
 
-- **Complete per-turn logs.** Not yet true, and the README's auditability claim depends on it. A
-  `tool_call` event currently stores `output_tokens` but not the output text; the text survives only
-  as a side effect, inside the *next* turn's `request.messages`. That fails in exactly the cases
-  worth auditing — a trial that aborts on a cassette miss or hits the turn ceiling loses its last
-  tool output entirely — and it forces an auditor to reconstruct turn N from turn N+1. Each turn
-  should be self-contained: request, response, and every tool call with the bytes it returned.
+- **Complete per-turn logs.** Done, and no longer optional. Nothing caches API responses, so a trace
+  is the only place one survives: each turn now records its request, its response, and every tool
+  call with the bytes it returned. Both invariant 4 and the parity check rest on it.
+- **Parity between arms.** Live data cannot guarantee that two arms saw the same bytes, so
+  `scripts/verify_parity.py` measures it from the traces instead and reports any shared request that
+  diverged. A comparison that spans a change in the API is still usable, but only if it says so.
 - **Probe count per task, from the baseline.** How much the `baseline` arm has to probe is a
   validity measure for each task. A task it answers in one call without probing has no discovery
   cost, and therefore cannot discriminate between ways of documenting an API — task 1 is already
@@ -60,9 +60,13 @@ A step-by-step walkthrough of the ladder, showing what each cheap optimisation r
 
 ## Prerequisites, before any of it is publishable
 
+- **Re-run everything.** Every published number predates the removal of the recorded corpus and was
+  measured against data that no longer exists in this repository. They are evidence of what the
+  harness did, not measurements to cite.
 - **Repeats.** Two runs of an identical cell on an identical task produced 125,574 and 102,467
-  prompt tokens — a 22% spread at temperature 0. Any optimisation worth less than that is
-  unmeasurable until the noise comes down. The triad is cheap enough to run at k=5.
+  prompt tokens — a 22% spread at temperature 0, and now with live API variance on top. Any
+  optimisation worth less than that is unmeasurable until the noise comes down. The triad is cheap
+  enough to run at k=5.
 - **Re-run tasks 1–3.** Deferred cells were executing tools they had never loaded; fixed, but those
   numbers are understated and stand withdrawn until redone.
 - **Rename the projection parameter.** `_jq` reads as private in every convention a model has seen,
