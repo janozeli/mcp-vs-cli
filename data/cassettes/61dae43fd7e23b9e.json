@@ -1,0 +1,209 @@
+{
+  "recorded_at": "2026-07-31T01:42:23Z",
+  "request": {
+    "canonical": "GET /deputados/104552/despesas?ano=2024&mes=3&pagina=2",
+    "method": "GET",
+    "params": {
+      "ano": "2024",
+      "mes": "3",
+      "pagina": "2"
+    },
+    "path": "/deputados/104552/despesas"
+  },
+  "response": {
+    "body": {
+      "dados": [
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "24012959000105",
+          "codDocumento": "7714495",
+          "codLote": 2027980,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-04-04T00:00:00",
+          "mes": 3,
+          "nomeFornecedor": "POR DENTRO DO ACRE",
+          "numDocumento": "127",
+          "numRessarcimento": "",
+          "parcela": 0,
+          "tipoDespesa": "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": "https://www.camara.leg.br/cota-parlamentar/documentos/publ/3567/2024/7714495.pdf",
+          "valorDocumento": 3500.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 3500.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "19079757000140",
+          "codDocumento": "7717925",
+          "codLote": 2029862,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-04-11T00:00:00",
+          "mes": 3,
+          "nomeFornecedor": "DIEGO DE M C ALVES COMERCIO DE VEICULOS NOVOS E US",
+          "numDocumento": "147",
+          "numRessarcimento": "",
+          "parcela": 0,
+          "tipoDespesa": "LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": "https://www.camara.leg.br/cota-parlamentar/documentos/publ/3567/2024/7717925.pdf",
+          "valorDocumento": 6000.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 6000.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "19079757000140",
+          "codDocumento": "7740561",
+          "codLote": 2042034,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-05-02T00:00:00",
+          "mes": 3,
+          "nomeFornecedor": "DIEGO DE M C ALVES COMERCIO DE VEICULOS NOVOS E US",
+          "numDocumento": "153",
+          "numRessarcimento": "",
+          "parcela": 0,
+          "tipoDespesa": "LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": "https://www.camara.leg.br/cota-parlamentar/documentos/publ/3567/2024/7740561.pdf",
+          "valorDocumento": 6000.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 6000.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "232240",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-04T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572147500079",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 87.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 87.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "232240",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-04T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572147500079",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 1367.51,
+          "valorGlosa": 0.0,
+          "valorLiquido": 1367.51
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "232248",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-04T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572147500744",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 83.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 83.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "232248",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-04T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572147500744",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 1367.51,
+          "valorGlosa": 0.0,
+          "valorLiquido": 1367.51
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "238703",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-27T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572150560285",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 95.0,
+          "valorGlosa": 0.0,
+          "valorLiquido": 95.0
+        },
+        {
+          "ano": 2024,
+          "cnpjCpfFornecedor": "",
+          "codDocumento": "238703",
+          "codLote": 0,
+          "codTipoDocumento": 0,
+          "dataDocumento": "2024-03-27T12:00:00",
+          "mes": 3,
+          "nomeFornecedor": "TAM",
+          "numDocumento": "9572150560285",
+          "numRessarcimento": "0",
+          "parcela": 0,
+          "tipoDespesa": "PASSAGEM AÉREA - SIGEPA",
+          "tipoDocumento": "Nota Fiscal",
+          "urlDocumento": null,
+          "valorDocumento": 1367.51,
+          "valorGlosa": 0.0,
+          "valorLiquido": 1367.51
+        }
+      ],
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados/104552/despesas?ano=2024&mes=3&pagina=2",
+          "rel": "self"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados/104552/despesas?ano=2024&mes=3&pagina=1&itens=15",
+          "rel": "first"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados/104552/despesas?ano=2024&mes=3&pagina=2&itens=15",
+          "rel": "last"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados/104552/despesas?ano=2024&mes=3&pagina=1&itens=15",
+          "rel": "previous"
+        }
+      ]
+    },
+    "status": 200
+  }
+}
