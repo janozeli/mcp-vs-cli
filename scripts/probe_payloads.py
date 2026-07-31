@@ -56,7 +56,7 @@ def main() -> None:
         raw = tokens.count_json(body)
         try:
             projected = tokens.count_json(project(body))
-        except Exception as exc:  # noqa: BLE001 - a probe, not production
+        except Exception as exc:
             projected = -1
             label = f"{label} (projection failed: {exc})"
         rows.append((label, raw, projected))
