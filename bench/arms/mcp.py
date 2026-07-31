@@ -40,10 +40,20 @@ def _description(op: Operation) -> str:
     return "\n\n".join(dict.fromkeys(parts))
 
 
-def tool_definition(op: Operation, *, prefix: str = "") -> dict[str, Any]:
+def tool_definition(op: Operation, *, prefix: str = "", filtering: bool = False) -> dict[str, Any]:
     """One operation as an OpenAI-style function tool, the wire format OpenRouter expects."""
     properties = {p.name: _property_schema(p) for p in op.params}
     required = [p.name for p in op.params if p.required]
+    if filtering:
+        # What a server designed for agents would offer: project the response before returning it.
+        # It costs schema tokens on every tool, which is the honest price of the capability.
+        properties["_jq"] = {
+            "type": "string",
+            "description": (
+                "Optional jq expression applied to the response before it is returned, "
+                "e.g. '.dados|length'. Use it to avoid returning fields you do not need."
+            ),
+        }
     parameters: dict[str, Any] = {"type": "object", "properties": properties}
     if required:
         parameters["required"] = required
@@ -57,13 +67,15 @@ def tool_definition(op: Operation, *, prefix: str = "") -> dict[str, Any]:
     }
 
 
-def tool_definitions(registry: Registry, *, prefix: str = "") -> list[dict[str, Any]]:
+def tool_definitions(
+    registry: Registry, *, prefix: str = "", filtering: bool = False
+) -> list[dict[str, Any]]:
     """The full tools array for the MCP arm.
 
     `prefix` reproduces the namespacing MCP clients apply to avoid collisions between connected
     servers (`camara__list_deputados`). It is a real, and rarely counted, part of the bill.
     """
-    return [tool_definition(op, prefix=prefix) for op in registry]
+    return [tool_definition(op, prefix=prefix, filtering=filtering) for op in registry]
 
 
 def search_tool_definition() -> dict[str, Any]:
@@ -131,9 +143,9 @@ def system_prompt(registry: Registry, *, disclosure: Disclosure = "eager", prefi
 
 
 def tools_for(
-    registry: Registry, *, disclosure: Disclosure = "eager", prefix: str = ""
+    registry: Registry, *, disclosure: Disclosure = "eager", prefix: str = "", filtering: bool = False
 ) -> list[dict[str, Any]]:
     """The tools array actually sent, at each level of disclosure."""
     if disclosure == "eager":
-        return tool_definitions(registry, prefix=prefix)
+        return tool_definitions(registry, prefix=prefix, filtering=filtering)
     return [search_tool_definition()]

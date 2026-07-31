@@ -111,17 +111,23 @@ def full_help(registry: Registry) -> str:
     return "\n".join(parts)
 
 
-def tool_definition() -> dict[str, Any]:
+def tool_definition(*, filtering: bool = False) -> dict[str, Any]:
     """The single tool the CLI arm exposes, whatever N is."""
+    description = (
+        f"Run the `{PROGRAM}` command-line tool and return its stdout. "
+        f"`{PROGRAM} --help` lists the available commands; "
+        f"`{PROGRAM} <command> --help` describes one command's arguments."
+    )
+    if filtering:
+        description += (
+            " Output may be piped to jq to reduce it before you see it, "
+            f"e.g. `{PROGRAM} <command> | jq '.dados|length'`."
+        )
     return {
         "type": "function",
         "function": {
             "name": "run_cli",
-            "description": (
-                f"Run the `{PROGRAM}` command-line tool and return its stdout. "
-                f"`{PROGRAM} --help` lists the available commands; "
-                f"`{PROGRAM} <command> --help` describes one command's arguments."
-            ),
+            "description": description,
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -148,7 +154,9 @@ def system_prompt(registry: Registry, *, disclosure: Disclosure = "lazy") -> str
     return OBJECTIVE
 
 
-def tools_for(registry: Registry, *, disclosure: Disclosure = "lazy") -> list[dict[str, Any]]:
+def tools_for(
+    registry: Registry, *, disclosure: Disclosure = "lazy", filtering: bool = False
+) -> list[dict[str, Any]]:
     """One tool, at every level of disclosure and every N. That is the point of the format."""
     del registry, disclosure
-    return [tool_definition()]
+    return [tool_definition(filtering=filtering)]

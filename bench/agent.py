@@ -22,7 +22,7 @@ from typing import Any
 from openai import OpenAI
 
 from bench import config, tokens
-from bench.arms import Disclosure
+from bench.arms import Disclosure, Handling
 from bench.arms import cli as cli_arm
 from bench.arms import mcp as mcp_arm
 from bench.execute import call_operation, run_command
@@ -76,7 +76,9 @@ def _fold(text: str) -> str:
     return "".join(c for c in decomposed if not unicodedata.combining(c))
 
 
-def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list[str]]:
+def _search(
+    registry: Registry, query: str, loaded: set[str], filtering: bool = False
+) -> tuple[str, list[str]]:
     """Resolve a `tool_search` query, as a deferring client would.
 
     Browsing returns names; only `select:` returns schemas. Charging a full schema for every keyword
@@ -104,7 +106,9 @@ def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list
         if not names:
             return f"No such tools: {', '.join(unknown)}. Search by keyword first.", []
         loaded.update(names)
-        definitions = [mcp_arm.tool_definition(registry.by_name(n), prefix=PREFIX) for n in names]
+        definitions = [
+            mcp_arm.tool_definition(registry.by_name(n), prefix=PREFIX, filtering=filtering) for n in names
+        ]
         note = f"\nNot found: {', '.join(unknown)}." if unknown else ""
         return json.dumps(definitions, ensure_ascii=False) + note, names
 
@@ -135,16 +139,17 @@ def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list
 
 
 def _tools_for_turn(
-    registry: Registry, fmt: str, disclosure: Disclosure, loaded: set[str]
+    registry: Registry, fmt: str, disclosure: Disclosure, loaded: set[str], filtering: bool
 ) -> list[dict[str, Any]]:
     if fmt == "cli":
-        return cli_arm.tools_for(registry, disclosure=disclosure)
+        return cli_arm.tools_for(registry, disclosure=disclosure, filtering=filtering)
     if disclosure == "eager":
-        return mcp_arm.tool_definitions(registry, prefix=PREFIX)
+        return mcp_arm.tool_definitions(registry, prefix=PREFIX, filtering=filtering)
     # Deferred: the search tool, plus whatever the model has pulled in so far.
     definitions = [mcp_arm.search_tool_definition()]
     definitions.extend(
-        mcp_arm.tool_definition(registry.by_name(name), prefix=PREFIX) for name in sorted(loaded)
+        mcp_arm.tool_definition(registry.by_name(name), prefix=PREFIX, filtering=filtering)
+        for name in sorted(loaded)
     )
     return definitions
 
@@ -163,12 +168,15 @@ def run_trial(
     registry: Registry,
     cassette: Cassette,
     client: OpenAI,
+    handling: Handling = "whole",
     model: str = config.MODEL,
     trace_dir: Path | None = None,
     max_turns: int = MAX_TURNS,
 ) -> Trial:
     """Run one task in one cell, writing a full transcript as it goes."""
-    arm = f"{fmt}/{disclosure}"
+    filtering = handling == "filtered"
+    deferred = fmt == "mcp" and disclosure != "eager"
+    arm = f"{fmt}/{disclosure}/{handling}"
     trial = Trial(task_id=task.id, arm=arm, model=model)
 
     system = _system_prompt(registry, fmt, disclosure)
@@ -181,7 +189,7 @@ def run_trial(
     trace_path: Path | None = None
     if trace_dir is not None:
         trace_dir.mkdir(parents=True, exist_ok=True)
-        trace_path = trace_dir / f"{task.id}__{fmt}-{disclosure}.jsonl"
+        trace_path = trace_dir / f"{task.id}__{fmt}-{disclosure}-{handling}.jsonl"
         trace_path.write_text("", encoding="utf-8")
         trial.trace = str(trace_path)
 
@@ -191,11 +199,11 @@ def run_trial(
                 handle.write(json.dumps(event, ensure_ascii=False) + "\n")
 
     trial.upfront_tokens = tokens.count_json(
-        _tools_for_turn(registry, fmt, disclosure, loaded)
+        _tools_for_turn(registry, fmt, disclosure, loaded, filtering)
     ) + tokens.count_text(system)
 
     for turn in range(1, max_turns + 1):
-        tools = _tools_for_turn(registry, fmt, disclosure, loaded)
+        tools = _tools_for_turn(registry, fmt, disclosure, loaded, filtering)
         request = {
             "model": model,
             "messages": messages,
@@ -235,7 +243,7 @@ def run_trial(
             trial.tool_calls += 1
 
             try:
-                output = _dispatch(registry, cassette, fmt, name, arguments, loaded)
+                output = _dispatch(registry, cassette, fmt, name, arguments, loaded, filtering, deferred)
             except CassetteMiss as miss:
                 # Never fabricate a response: an unrecorded call means the corpus is incomplete, and
                 # a run built on invented data would be worse than no run.
@@ -323,14 +331,25 @@ def _dispatch(
     name: str,
     arguments: dict[str, Any],
     loaded: set[str],
+    filtering: bool = False,
+    deferred: bool = False,
 ) -> str:
     if fmt == "cli":
         if name != "run_cli":
             return f"error: no such tool {name!r}"
-        return run_command(registry, cassette, str(arguments.get("command", ""))).text
+        command = str(arguments.get("command", ""))
+        return run_command(registry, cassette, command, allow_pipe=filtering).text
     if name == "tool_search":
-        text, _ = _search(registry, str(arguments.get("query", "")), loaded)
+        text, _ = _search(registry, str(arguments.get("query", "")), loaded, filtering)
         return text
+    if deferred and _strip_prefix(name) not in loaded:
+        # A deferred client cannot execute a tool it never sent a definition for. Running it anyway
+        # turned this cell into "eager without paying for the schemas", which is not a configuration
+        # anyone can actually deploy -- and it let a model that had merely read the index skip the
+        # round trip the cell exists to measure.
+        return (
+            f"error: {name} is not loaded. Load its definition first with tool_search(query='select:{name}')."
+        )
     return call_operation(registry, cassette, name, arguments, prefix=PREFIX).text
 
 

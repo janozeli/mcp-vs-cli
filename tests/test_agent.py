@@ -187,6 +187,48 @@ def test_selecting_an_unknown_tool_says_so(registry: spec.Registry) -> None:
     assert "No such tools" in text
 
 
+@pytest.mark.parametrize("disclosure", ["indexed", "lazy"])
+def test_a_deferred_cell_refuses_a_tool_it_never_loaded(
+    registry: spec.Registry, cassette: Cassette, disclosure: str
+) -> None:
+    """Otherwise the cell is 'eager without paying for the schemas', which nobody can deploy.
+
+    The indexed cell shows the model a list of names. Left unguarded, the model reads a name and
+    calls it straight away, skipping the very round trip this cell exists to measure.
+    """
+    trial, _ = _run(
+        "t1-civil-name",
+        [
+            _tool_call("camara__get_deputados", '{"id": 204554}'),
+            _tool_call("tool_search", '{"query": "select:camara__get_deputados"}', call_id="c2"),
+            _tool_call("camara__get_deputados", '{"id": 204554}', call_id="c3"),
+            _text("JOSE ABILIO SILVA DE SANTANA"),
+        ],
+        registry,
+        cassette,
+        fmt="mcp",
+        disclosure=disclosure,
+        trace_dir=None,
+    )
+    assert trial.success, "the model should be able to recover by loading the tool"
+    assert trial.turns == 4, "the unloaded call costs a turn rather than being served"
+
+
+def test_an_eager_cell_needs_no_loading(registry: spec.Registry, cassette: Cassette) -> None:
+    trial, _ = _run(
+        "t1-civil-name",
+        [
+            _tool_call("camara__get_deputados", '{"id": 204554}'),
+            _text("JOSE ABILIO SILVA DE SANTANA"),
+        ],
+        registry,
+        cassette,
+        fmt="mcp",
+        disclosure="eager",
+    )
+    assert trial.success and trial.turns == 2
+
+
 def test_the_cli_format_never_sends_more_than_one_tool(registry: spec.Registry, cassette: Cassette) -> None:
     for disclosure in ("eager", "indexed", "lazy"):
         _, client = _run("t1-civil-name", [_text("x")], registry, cassette, fmt="cli", disclosure=disclosure)

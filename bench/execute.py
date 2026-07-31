@@ -12,9 +12,18 @@ import shlex
 from dataclasses import dataclass
 from typing import Any
 
+import jq
+
 from bench.arms import cli as cli_arm
 from bench.replay import Cassette
 from bench.spec import Operation, Registry
+
+FILTER_ARGUMENT = "_jq"
+"""The projection parameter the filtered MCP cell adds to every tool.
+
+Same language as the CLI's pipe, so the comparison is about where the filtering happens rather than
+about which syntax the model happens to know.
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +38,22 @@ class ToolResult:
 
 def _serialise(body: Any) -> str:
     return json.dumps(body, ensure_ascii=False, separators=(",", ":"))
+
+
+def apply_filter(body: Any, expression: str) -> tuple[str, bool]:
+    """Run a jq expression over a response, returning the text and whether it worked.
+
+    A bad expression comes back as an error the model can read and correct, exactly as a failed
+    pipe would. Silently returning the unfiltered body instead would hide the cost of getting it
+    wrong, which is part of what filtering actually costs.
+    """
+    try:
+        outputs = jq.compile(expression).input_value(body).all()
+    except ValueError as exc:
+        return f"jq: error: {exc}", False
+    except Exception as exc:  # a runtime failure inside the expression
+        return f"jq: error: {type(exc).__name__}: {exc}", False
+    return "\n".join(_serialise(item) for item in outputs), True
 
 
 def _coerce(value: str) -> Any:
@@ -51,10 +76,18 @@ def call_operation(
     except KeyError:
         return ToolResult(text=f"error: no such tool {name!r}", ok=False)
 
-    return _invoke(operation, cassette, arguments)
+    arguments = dict(arguments)
+    expression = arguments.pop(FILTER_ARGUMENT, None)
+    return _invoke(operation, cassette, arguments, jq_expression=expression)
 
 
-def _invoke(operation: Operation, cassette: Cassette, arguments: dict[str, Any]) -> ToolResult:
+def _invoke(
+    operation: Operation,
+    cassette: Cassette,
+    arguments: dict[str, Any],
+    *,
+    jq_expression: str | None = None,
+) -> ToolResult:
     path_values = {
         p.name: arguments[p.name] for p in operation.params if p.location == "path" and p.name in arguments
     }
@@ -71,25 +104,38 @@ def _invoke(operation: Operation, cassette: Cassette, arguments: dict[str, Any])
     query = {k: ",".join(str(x) for x in v) if isinstance(v, list) else v for k, v in query.items()}
 
     recorded = cassette.get(path, query)
+    ok = 200 <= recorded.status < 300
+    if jq_expression and ok:
+        text, filtered_ok = apply_filter(recorded.body, jq_expression)
+        return ToolResult(text=text, ok=filtered_ok, http_status=recorded.status, operation=operation.name)
     return ToolResult(
         text=_serialise(recorded.body),
-        ok=200 <= recorded.status < 300,
+        ok=ok,
         http_status=recorded.status,
         operation=operation.name,
     )
 
 
-def run_command(registry: Registry, cassette: Cassette, command: str) -> ToolResult:
+def run_command(
+    registry: Registry, cassette: Cassette, command: str, *, allow_pipe: bool = False
+) -> ToolResult:
     """Run one `api ...` command line, as the CLI format would.
 
     Supports exactly what the help text promises: `--help` at either level, positional path
     arguments, and `--flag value` options. Anything else is a usage error, which is what a real CLI
     would say too.
+
+    With `allow_pipe`, a single `| jq '<expr>'` may follow, and only jq — the point is to give the
+    agent a way to reduce a response before it reaches the context, not to build a shell.
     """
     try:
         tokens = shlex.split(command)
     except ValueError as exc:
         return ToolResult(text=f"error: could not parse command line: {exc}", ok=False)
+
+    tokens, expression, pipe_error = _split_pipe(tokens, allow_pipe=allow_pipe)
+    if pipe_error is not None:
+        return ToolResult(text=pipe_error, ok=False)
 
     if tokens and tokens[0] == cli_arm.PROGRAM:
         tokens = tokens[1:]
@@ -113,7 +159,26 @@ def run_command(registry: Registry, cassette: Cassette, command: str) -> ToolRes
     if error is not None:
         return ToolResult(text=error, ok=False, operation=operation.name)
 
-    return _invoke(operation, cassette, arguments)
+    return _invoke(operation, cassette, arguments, jq_expression=expression)
+
+
+def _split_pipe(tokens: list[str], *, allow_pipe: bool) -> tuple[list[str], str | None, str | None]:
+    """Separate `cmd | jq 'expr'` into its two halves."""
+    if "|" not in tokens:
+        return tokens, None, None
+    if not allow_pipe:
+        return tokens, None, "error: this tool runs a single command; pipes are not available."
+
+    index = tokens.index("|")
+    left, right = tokens[:index], tokens[index + 1 :]
+    if "|" in right:
+        return tokens, None, "error: only one pipe is supported, and it must be to jq."
+    if not right or right[0] != "jq":
+        target = right[0] if right else "nothing"
+        return tokens, None, f"error: can only pipe to jq, not to {target!r}."
+    if len(right) != 2:
+        return tokens, None, "error: jq takes exactly one filter expression, quoted."
+    return left, right[1], None
 
 
 def _parse_arguments(operation: Operation, tokens: list[str]) -> tuple[dict[str, Any], str | None]:

@@ -17,7 +17,7 @@ from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 
-from bench import config, design, spec, tasks
+from bench import config, spec, tasks
 from bench.agent import run_trial
 from bench.replay import Cassette
 
@@ -25,6 +25,19 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = ROOT / "data" / "specs" / "camara-dados-abertos-v2.json"
 CASSETTES = ROOT / "data" / "cassettes"
 RUNS = ROOT / "runs"
+
+# The run-time design. Disclosure is held at `indexed` — the realistic default, and the level the
+# static half already showed is within a rounding error of `lazy` — so the money goes on the axis
+# that is still unmeasured: what happens to a response on its way into the context. The two eager
+# cells stay as the baseline everything else is compared against.
+CELLS: tuple[tuple[str, str, str], ...] = (
+    ("mcp", "eager", "whole"),
+    ("cli", "eager", "whole"),
+    ("mcp", "indexed", "whole"),
+    ("cli", "indexed", "whole"),
+    ("mcp", "indexed", "filtered"),
+    ("cli", "indexed", "filtered"),
+)
 
 
 def main() -> None:
@@ -39,20 +52,20 @@ def main() -> None:
 
     trace_dir = RUNS / "pilot" / task.id
     results = []
-    for fmt in design.FORMATS:
-        for disclosure in ("eager", "indexed", "lazy"):
-            console.print(f"  running {fmt}/{disclosure} …", end="")
-            trial = run_trial(
-                task,
-                fmt=fmt,
-                disclosure=disclosure,
-                registry=registry,
-                cassette=cassette,
-                client=client,
-                trace_dir=trace_dir,
-            )
-            console.print(" [green]ok[/]" if trial.success else f" [red]{trial.aborted or 'wrong answer'}[/]")
-            results.append(trial)
+    for fmt, disclosure, handling in CELLS:
+        console.print(f"  running {fmt}/{disclosure}/{handling} …", end="")
+        trial = run_trial(
+            task,
+            fmt=fmt,
+            disclosure=disclosure,  # type: ignore[arg-type]
+            handling=handling,  # type: ignore[arg-type]
+            registry=registry,
+            cassette=cassette,
+            client=client,
+            trace_dir=trace_dir,
+        )
+        console.print(" [green]ok[/]" if trial.success else f" [red]{trial.aborted or 'wrong answer'}[/]")
+        results.append(trial)
 
     table = Table(title=f"{task.id} — pilot")
     for column, justify in (

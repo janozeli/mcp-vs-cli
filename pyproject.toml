@@ -5,6 +5,7 @@ description = "What does an MCP server cost in context, and what do you get back
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28",
+    "jq>=1.12.0",
     "openai>=2.51.0",
     "rich>=13.9",
     "tiktoken>=0.8",
@@ -30,6 +31,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+# The jq binding ships no type stubs.
+module = ["jq"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
