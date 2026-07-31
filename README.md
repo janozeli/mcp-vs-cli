@@ -3,58 +3,46 @@
 **What does an MCP server cost you in context, and what do you get back for it?**
 
 Connecting an MCP server can put every one of its tool schemas into the request before the model has
-read a word of your task. Handing the agent a CLI instead costs almost nothing up front, but the
-agent has to spend turns running `--help` to find out what it can do.
+read a word of your task, and most servers hand back whole response objects once it starts working.
+Give the agent a CLI instead and it starts from nothing — but it spends turns on `--help`.
 
 That trade gets argued about constantly and measured rarely. This repo measures it, against a real
-public API, reproducibly.
+public API, reproducibly, with every request and response kept on disk so the numbers can be
+recomputed by someone who does not trust them.
 
 ## The comparison people actually mean
 
 "MCP vs CLI" bundles together choices that are independent, and the bundling is where the argument
-goes wrong. Modern clients defer tool loading — schemas arrive when the model asks for them — and a
-CLI's manual can just as easily be pasted into the system prompt. So the design separates the
+goes wrong. Modern clients defer tool loading; a CLI's manual can just as easily be pasted into the
+system prompt; and a well-designed server can project its responses. So the design separates three
 factors instead of confounding them:
 
-- **format** — how a capability is described: a JSON Schema, or a page of help text.
-- **disclosure** — when that description enters the context.
-- **result handling** — whether what comes back enters the context whole, or filtered first.
-
-The first two are about *describing* capabilities and are paid once. The third is about *using*
-them, and is paid on every call — which, as the measurements below show, is where the money
-actually is.
-
-|  | **MCP format** (JSON Schema) | **CLI format** (help text) |
+| factor | levels | paid |
 | --- | --- | --- |
-| **eager** — everything up front | all schemas declared on connect | the whole manual in the system prompt |
-| **indexed** — names up front, detail on request | deferred loading with a tool catalogue | `api --help` preloaded |
-| **lazy** — nothing up front | `tool_search` with no catalogue | agent runs `api --help` itself |
+| **format** | JSON Schema, or help text | — |
+| **disclosure** | `eager` (all up front), `indexed` (names up front), `lazy` (nothing) | once |
+| **result handling** | `whole`, or `filtered` before it reaches the context | **every call** |
 
-Six cells, fully crossed on the first two factors. All six are **generated from the same OpenAPI
-document**, so a difference between cells is always a difference of exposure and never of capability
-— enforced by tests that compare the surfaces operation by operation and parameter by parameter.
-
-Result handling crosses over that grid again. It is the one place where the difference is
-structural rather than conventional: a CLI writes to stdout, so a pipeline can reduce a response
-before any of it reaches the context, while a tool call returns an object that lands whole. The
-`mcp/filtered` cell is kept anyway, as the upper bound for a well-designed server — it is the
-strongest version of the case for MCP, and the case for running code against tools rather than
-calling them directly.
+Everything is generated from the same OpenAPI document, so a difference between cells is a
+difference of exposure and never of capability — enforced by tests that compare the surfaces
+operation by operation and parameter by parameter. Both filtering cells get the *same* filter
+language (jq), so the comparison is about where filtering happens rather than which syntax the model
+knows. The `mcp/filtered` cell is the well-designed server, not a straw man.
 
 **The subject.** [Dados Abertos da Câmara dos Deputados](https://dadosabertos.camara.leg.br/swagger/api.html),
 the Brazilian Chamber of Deputies' open-data API: OpenAPI 3.0.1, 78 operations across 11 tag groups,
 no authentication, real relational data. Chosen for size — enough operations to scale N over a real
 curve — and for obscurity at the record level: a model cannot answer *which deputy filed which bill*
-from memory, so the arms have to actually use the tools. The spec is vendored under
-[`data/specs/`](data/specs) with its source URL, fetch date and sha256.
+from memory, so the arms have to use the tools. The spec is vendored under [`data/specs/`](data/specs)
+with its source URL, fetch date and sha256; responses are frozen in [`data/cassettes/`](data/cassettes)
+so every cell replays identical bytes and the repo runs offline.
 
-## Result: disclosure dominates format
+## Static result: disclosure dominates format
 
-Static token counts (`o200k_base`), from `uv run python -m bench.measure`.
+Token counts for what each cell holds before the task is read (`o200k_base`), from
+`uv run python -m bench.measure`:
 
-**Occupied before the task is read**, by number of operations exposed:
-
-| arm | 5 | 10 | 20 | 40 | 78 |
+| arm | 5 ops | 10 | 20 | 40 | 78 |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | mcp/eager | 690 | 1,740 | 3,704 | 7,944 | 16,974 |
 | mcp/indexed | 262 | 389 | 617 | 1,094 | 1,929 |
@@ -63,70 +51,91 @@ Static token counts (`o200k_base`), from `uv run python -m bench.measure`.
 | cli/indexed | 287 | 399 | 597 | 1,014 | 1,735 |
 | cli/lazy | 131 | 131 | 131 | 131 | 131 |
 
-Up-front cost flatters the lazy cells, because what they defer they still have to fetch — and a
-catalogue or a schema that arrives mid-run occupies the window exactly like anything else. So the
-honest total is **everything an arm must hold to be ready to call 3 operations**:
+Holding disclosure fixed, the two formats land within 1.4% of each other at 78 operations. Holding
+format fixed, deferring cuts the cost 7–8×. **The row is worth roughly fifty times more than the
+column.** That the two eager cells land within 1.4% is also the check on the CLI renderer: a terser
+help text would have handed that format a win by construction.
 
-| arm | 5 | 10 | 20 | 40 | 78 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| mcp/eager | 690 | 1,740 | 3,704 | 7,944 | 16,974 |
-| mcp/indexed | 538 | 665 | 914 | 1,493 | 2,340 |
-| mcp/lazy | 533 | 660 | 909 | 1,488 | 2,335 |
-| cli/eager | 819 | 1,886 | 3,815 | 7,965 | 16,737 |
-| cli/indexed | 500 | 612 | 822 | 1,338 | 2,077 |
-| cli/lazy | 493 | 605 | 815 | 1,331 | 2,070 |
+## Run-time result: what a whole payload costs
 
-Three things fall out, at 78 operations:
+Five tasks run against the frozen corpus, graded programmatically against ground truth recomputed
+from the same corpus — no LLM judge. Task 4 asks how many São Paulo deputies voted "Sim" in one
+vote; the response is 366 nested records and about 150 kB.
 
-**Format barely matters.** Holding disclosure fixed, JSON Schema and help text land within 1.4%
-(eager) and 13% (deferred) of each other. Whether a capability is described in a schema or in a man
-page is close to a rounding error.
+Model `deepseek/deepseek-v4-flash`, temperature 0, one trial per cell:
 
-**Disclosure matters enormously.** Holding format fixed, going from eager to deferred cuts the cost
-by **7.3×** (16,974 → 2,340). The row you pick is worth roughly fifty times more than the column.
+| cell | ok | turns | peak context | prompt Σ | tool output |
+| --- | :-: | ---: | ---: | ---: | ---: |
+| mcp/eager/whole | ✓ | 2 | 81,566 | 102,467 | 55,499 |
+| cli/eager/whole | ✓ | 2 | 80,264 | 99,859 | 55,499 |
+| mcp/indexed/whole | ✓ | 4 | 64,307 | 73,145 | 55,938 |
+| cli/indexed/whole | ✓ | 3 | 63,005 | 69,831 | 55,499 |
+| mcp/indexed/filtered | ✓ | 4 | 64,497 | 73,525 | 56,026 |
+| **cli/indexed/filtered** | ✓ | 6 | **5,108** | **26,433** | **2,041** |
 
-**The index is not where the money is.** `indexed` and `lazy` end up within 0.2% of each other
-(2,340 vs 2,335): you pay for the catalogue either way, and putting it up front only saves a round
-trip. What is expensive is carrying the *detail* of 78 operations to call 3 of them.
+**One cell filtered, and it changed the order of magnitude.** Piping to jq cut tool output 27× and
+peak context 12×, for the same correct answer, at the cost of three extra turns.
 
-So the real question is not MCP versus CLI. It is eager versus deferred — and MCP, in a client that
-defers tool loading, costs about what a CLI costs. That is a claim about context only; whether
-deferral costs turns or accuracy is measured next.
+**The other filtering cell had the same capability and did not use it.** `mcp/indexed/filtered` was
+handed a projection parameter on every tool, in the same jq syntax, and returned the whole payload
+anyway. The plain reading is that `cmd | jq` is idiomatic and a projection argument is an affordance
+the model has never seen — a capability the model does not reach for is a capability that is not
+there. The less flattering reading is in *Caveats*: the parameter is named `_jq`, and a leading
+underscore means "internal" in every convention the model has read.
 
-### Why the numbers should be believed
+Notice also what the eager cells bought: nothing. Every cell answered correctly, so the 30k tokens of
+schemas made no difference to the outcome and only to the bill.
 
-That the two eager cells land within 1.4% is the check on the CLI renderer: a terser help text would
-have handed the CLI format a win by construction. It carries the same information at the same price.
+## Findings withdrawn
 
-## Preliminary: response payloads dwarf all of this
+Three claims measured here did not survive scrutiny, and are listed because a benchmark that only
+publishes what held up is not reporting, it is advertising.
 
-Everything above is paid once. Response payloads are paid on every call, and most MCP servers return
-the whole object. Five realistic calls against the live API, each compared against the smallest
-projection that still answers a plausible question about it:
+- **"Blind tool search costs 4× an index."** An artefact: the search returned five full schemas for
+  every keyword guess. Made to browse by name, `mcp/lazy` went from 34,762 prompt tokens to 4,624 on
+  the same task — from the most expensive deferred cell to the cheapest of all six.
+- **"An upfront index costs twice a lazy search."** The mechanism is real — anything upfront is
+  re-sent every turn — but the measurement was driven by a round trip the harness forced on a model
+  that had correctly read the index it was given.
+- **Deferred-cell numbers for tasks 1–3.** The harness let those cells call tools they had never
+  loaded, which made `indexed` behave as "eager without paying for the schemas". Fixed; those runs
+  are being redone. Eager and CLI numbers are unaffected.
 
-| call | raw | projected | ratio |
-| --- | ---: | ---: | ---: |
-| deputies from São Paulo | 8,393 | 864 | 10× |
-| bills of one type in a year (20) | 2,496 | 675 | 4× |
-| votes in a month (20) | 3,626 | 121 | 30× |
-| one bill's details | 414 | 56 | 7× |
-| one deputy's expenses | 46 | — | empty response, excluded |
+Two of the three were found by reading the traces rather than by reasoning about the code.
 
-**14,929 tokens across four calls, against 1,716 that carry the answer — 8.7×.** For comparison, the
-entire eager schema bill for all 78 operations is 16,974. Four raw payloads cost nearly as much as
-the whole thing that the schema argument is about — and payloads recur while schemas do not.
+## Caveats
 
-Two honest caveats. The projections are mine, written by hand; they are an illustration of the
-headroom, not a measurement of what an agent would actually do. And this probe hits the live API, so
-the numbers move. Both are why the record-replay cache is the next piece of work — after which this
-becomes a fixed corpus, and the projection ratio becomes something the agent has to earn.
-
-Reproduce it (requires network): `uv run python scripts/probe_payloads.py`.
+- **One trial per cell.** Re-running an identical cell on an identical task produced 125,574 and
+  102,467 prompt tokens on two attempts — a 22% spread at temperature 0. Nothing here should be read
+  as a difference smaller than that until the repeats are in.
+- **The `_jq` parameter may be handicapping its own cell.** A leading underscore reads as private.
+  The null result above has to be retested with an honest name before it means anything.
+- **Familiarity is a confound, and it favours the CLI.** Models have read enormous amounts of
+  `--help` and `| jq`; `tool_search` with a `select:` form is a protocol invented here and learned
+  in-context. Part of what "CLI format" measures is prior exposure. This is not removable inside the
+  experiment — and arguably it is a real advantage rather than an artefact.
+- **Static counts are estimates.** Computed offline with `o200k_base`. Run-time accounting uses the
+  provider's own reported usage.
+- **Window occupied ≠ dollars.** Caching makes repeated schemas cheap to *bill* without making them
+  cheap to *carry*: a cache hit does not give the window back. Reported separately.
 
 ## Reproduce
 
 ```bash
 uv sync && uv run python -m bench.measure
+```
+
+Everything above except the model runs is offline. The run-time half needs an
+[OpenRouter](https://openrouter.ai/keys) key in `.env` (see `.env.example`):
+
+```bash
+uv run python -m scripts.pilot t4-sao-paulo-yes-votes
+```
+
+Recompute a run's numbers from its traces alone, which is the check a sceptic would want:
+
+```bash
+uv run python -m scripts.summarise runs/pilot
 ```
 
 Quality gate:
@@ -138,29 +147,35 @@ uv run ruff check . && uv run mypy bench && uv run pytest
 ## Method notes
 
 - **Names.** The spec's own `operationId`s are unusable as tool names (`search`, `listar`,
-  `listar_1`). Every cell gets names from one mechanical transform over method and route
-  (`list_proposicoes`, `get_deputados_despesas`), applied identically so it cannot favour a format.
-  Resource nouns stay in the API's own Portuguese; only the verb is imposed.
-- **Namespacing is counted.** MCP clients prefix tools by server (`camara__list_deputados`). It is
-  part of the bill, so it is in the numbers.
+  `listar_1`). Every cell gets names from one mechanical transform over method and route, applied
+  identically so it cannot favour a format. Resource nouns stay in the API's own Portuguese.
+- **The prompt states an objective, never a procedure.** One sentence, byte-identical in all six
+  cells. Mechanism lives in the tool descriptions, where it is part of the surface under test and
+  counted in tokens. An earlier version told the CLI cells to run `--help` "first" and gave them a
+  syntax template while telling the MCP cells only that tools could be searched; that is not a
+  constant of the experiment, and it showed up in the results as if it were a property of the format.
+- **Namespacing is counted.** MCP clients prefix tools by server (`camara__list_deputados`).
 - **Transport parameters are hidden.** The spec declares an `Accept` header on all 78 operations;
   exposing it would let the agent request XML and break parsing for reasons unrelated to the
   comparison. Filtered once, in the registry, so every cell inherits it.
-- **The lazy cells are modelled conservatively.** `tool_search` is priced as returning the whole
-  catalogue. A keyword-filtered search would return less and cost less, so the lazy figures here are
-  an upper bound. The run-time experiment issues real queries and measures what actually comes back.
-- **Static counts are estimates.** Counted offline with `o200k_base`. Run-time accounting uses the
-  provider's own reported usage, recorded per request.
-- **Window occupied ≠ dollars.** Prompt caching makes repeated schemas cheap to *bill* without making
-  them cheap to *carry*: a cache hit does not give the window back. The two are reported separately.
+- **Errors are part of the corpus.** `/votacoes/{id}/votos` answers 400 to `itens`, and recovering
+  from that is half of what one task measures. The cassette records failures as faithfully as
+  successes.
+- **A miss aborts the trial.** An unrecorded call is never invented; a run built on fabricated data
+  would be worse than no run.
+- **Provider capacity errors are retried, not scored.** Free endpoints answer HTTP 200 with
+  `choices: null` when they are out of workers. A trial that landed on a busy worker says nothing
+  about the arm it was measuring.
 
 ## Status
 
-- [x] OpenAPI → operation registry, with every cell generated from it
-- [x] Static context cost across the 2×3 design and across N
-- [x] Preliminary probe of response payload sizes
-- [ ] Record-replay cache, so every trial sees byte-identical API responses
-- [ ] Task suite with ground truth computed from the frozen snapshot, plus a no-tools control arm to
-      detect memorisation
-- [ ] Agent loop over OpenRouter with full request/response traces
-- [ ] Run-time results: turns, success rate, tool-selection accuracy, latency, cost
+- [x] OpenAPI → operation registry, every cell generated from it
+- [x] Static context cost across the design and across N
+- [x] Record-replay corpus, so every cell replays identical bytes
+- [x] Five tasks with ground truth recomputed from the corpus
+- [x] Agent loop with full request/response traces
+- [x] Result-handling axis (whole vs filtered)
+- [ ] Repeats, to get past the 22% single-trial spread
+- [ ] Re-run tasks 1–3 with the deferred-cell fix in place
+- [ ] Retest the projection parameter under a name that does not read as private
+- [ ] Task 5, and the second model tier
