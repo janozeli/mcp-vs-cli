@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import time
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -69,6 +70,12 @@ def _strip_prefix(name: str) -> str:
     return name[len(PREFIX) :] if name.startswith(PREFIX) else name
 
 
+def _fold(text: str) -> str:
+    """Lowercase and strip accents, so `orgaos` finds `Órgãos`."""
+    decomposed = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
 def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list[str]]:
     """Resolve a `tool_search` query, as a deferring client would.
 
@@ -76,8 +83,16 @@ def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list
     guess would price the search's design rather than the format, and this format is being compared
     against a `--help` that costs one flat listing to browse.
     """
-    if query.strip().lower().startswith("select:"):
-        wanted = [_strip_prefix(n.strip()) for n in query.split(":", 1)[1].split(",") if n.strip()]
+    raw = query.strip()
+    candidates = [_strip_prefix(n.strip()) for n in raw.split(",") if n.strip()]
+    names_in_registry = {op.name for op in registry}
+    # A query that already names tools exactly is a request to load them. Making the model spell
+    # `select:` first punished it for reading the index it was given, which cost a whole turn.
+    if raw and all(name in names_in_registry for name in candidates):
+        raw = "select:" + ",".join(candidates)
+
+    if raw.lower().startswith("select:"):
+        wanted = [_strip_prefix(n.strip()) for n in raw.split(":", 1)[1].split(",") if n.strip()]
         names, unknown = [], []
         for name in wanted[:SELECT_LIMIT]:
             try:
@@ -93,17 +108,25 @@ def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list
         note = f"\nNot found: {', '.join(unknown)}." if unknown else ""
         return json.dumps(definitions, ensure_ascii=False) + note, names
 
-    terms = [t.strip().lower() for t in query.replace(",", " ").split() if t.strip()]
+    terms = [t.strip().lower() for t in raw.replace(",", " ").split() if t.strip()]
     scored: list[tuple[int, str]] = []
     for op in registry:
-        haystack = f"{op.name} {op.summary} {op.group}".lower()
-        score = sum(1 for term in terms if _strip_prefix(term) in haystack)
+        haystack = _fold(f"{op.name} {op.summary} {op.group}")
+        score = sum(1 for term in terms if _fold(_strip_prefix(term)) in haystack)
         if score:
             scored.append((score, op.name))
     scored.sort(key=lambda pair: (-pair[0], pair[1]))
     matches = [name for _, name in scored[:BROWSE_LIMIT]]
     if not matches:
-        return f"No tools matched {query!r}. Try broader keywords.", []
+        # A dead end would charge the arm a turn for asking in the wrong language: this corpus is
+        # documented in Portuguese and the questions arrive in English. Fall back to the groups, so
+        # a miss still leaves somewhere to go.
+        groups = ", ".join(f"{g} ({len(ops)})" for g, ops in registry.groups().items())
+        return (
+            f"Nothing matched {query!r}. The tools are grouped as: {groups}. "
+            "Search by a group name, or by a term from the API's own vocabulary.",
+            [],
+        )
 
     lines = [f"{PREFIX}{name} — {registry.by_name(name).summary}".rstrip() for name in matches]
     lines.append("")

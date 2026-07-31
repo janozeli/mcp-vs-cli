@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bench.arms import Disclosure
+from bench.arms import OBJECTIVE, Disclosure
 from bench.spec import Operation, Param, Registry
 
 _JSON_TYPES = {"integer": "integer", "number": "number", "boolean": "boolean", "string": "string"}
@@ -121,25 +121,13 @@ def _first_line(text: str) -> str:
 
 
 def system_prompt(registry: Registry, *, disclosure: Disclosure = "eager", prefix: str = "") -> str:
-    """Prose for the MCP format, at each level of disclosure.
+    """The shared objective, plus the catalogue when this cell hands one over up front.
 
-    With every schema declared up front there is nothing to say — the schemas already said it. A
-    deferred client has to explain that more tools exist than are loaded, and either lists their
-    names or leaves the model to search blind.
+    No instructions. How to reach a tool is described by the tools themselves.
     """
-    base = (
-        f"You have tools backed by the {registry.title} API. "
-        "Use them to answer the user's question. Answer with the final value only."
-    )
-    if disclosure == "eager":
-        return base
-    if disclosure == "indexed":
-        return (
-            f"{base} The tools below are available but not loaded: calling one requires loading its"
-            f" definition with `tool_search` first.\n\nAvailable tools:\n\n"
-            f"{tool_index(registry, prefix=prefix)}"
-        )
-    return f"{base} No tools are loaded yet. Use `tool_search` to find and load the ones you need."
+    if disclosure != "indexed":
+        return OBJECTIVE
+    return f"{OBJECTIVE}\n\nTools:\n\n{tool_index(registry, prefix=prefix)}"
 
 
 def tools_for(

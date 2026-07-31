@@ -19,3 +19,14 @@ from typing import Literal
 Disclosure = Literal["eager", "indexed", "lazy"]
 
 DISCLOSURES: tuple[Disclosure, ...] = ("eager", "indexed", "lazy")
+
+OBJECTIVE = "Answer the user's question using the tools available to you. Reply with the final value only."
+"""The system prompt, byte-identical in all six cells.
+
+It states the goal and nothing else. A prompt that also explained *how* to use the tools would stop
+being a constant of the experiment and become part of the treatment — and telling one cell to "run
+`--help` first" while telling another only that tools "can be searched" is not the same amount of
+help. Every mechanism now lives in the tool descriptions, which are part of the surface under test
+and already counted in tokens. Catalogues still ride in the prompt, but as data, which is precisely
+what is being measured.
+"""

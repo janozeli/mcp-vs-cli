@@ -13,7 +13,7 @@ from __future__ import annotations
 import textwrap
 from typing import Any
 
-from bench.arms import Disclosure
+from bench.arms import OBJECTIVE, Disclosure
 from bench.spec import Operation, Param, Registry
 
 PROGRAM = "api"
@@ -119,7 +119,8 @@ def tool_definition() -> dict[str, Any]:
             "name": "run_cli",
             "description": (
                 f"Run the `{PROGRAM}` command-line tool and return its stdout. "
-                f"Start with `{PROGRAM} --help` to discover the available commands."
+                f"`{PROGRAM} --help` lists the available commands; "
+                f"`{PROGRAM} <command> --help` describes one command's arguments."
             ),
             "parameters": {
                 "type": "object",
@@ -136,19 +137,15 @@ def tool_definition() -> dict[str, Any]:
 
 
 def system_prompt(registry: Registry, *, disclosure: Disclosure = "lazy") -> str:
-    """Prose for the CLI format, at each level of disclosure."""
-    base = (
-        f"You have a command-line tool, `{PROGRAM}`, backed by the {registry.title} API. "
-        "Use `run_cli` to run it. Answer with the final value only."
-    )
+    """The shared objective, plus the documentation this cell hands over up front.
+
+    No instructions. How to reach a command is described by the tool itself.
+    """
     if disclosure == "eager":
-        return f"{base}\n\nIts documentation follows.\n\n{full_help(registry)}"
+        return f"{OBJECTIVE}\n\n{full_help(registry)}"
     if disclosure == "indexed":
-        return (
-            f"{base} Its commands are listed below; run `{PROGRAM} <command> --help` for the options"
-            f" of one.\n\n{root_help(registry)}"
-        )
-    return f"{base} Run `{PROGRAM} --help` first to see what it can do."
+        return f"{OBJECTIVE}\n\n{root_help(registry)}"
+    return OBJECTIVE
 
 
 def tools_for(registry: Registry, *, disclosure: Disclosure = "lazy") -> list[dict[str, Any]]:
