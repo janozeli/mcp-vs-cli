@@ -7,49 +7,66 @@ complete, off-the-shelf harness, with us supplying only configuration and teleme
 
 This file reports what was observed. It does not choose. Dated 2026-07-31.
 
-## pi
+## Two corrections to earlier versions of this file
 
-[`@earendil-works/pi`](https://github.com/earendil-works/pi) 0.83.0, MIT.
+**pi does have MCP.** An earlier version said it did not. Three packages were inspected and a claim
+was made about the project; pi is lean by design, so absence from the core says nothing about
+absence from pi. [`pi-mcp-adapter`](https://pi.dev/packages/pi-mcp-adapter) is on npm (unscoped,
+v2.16.0), installs with `pi install npm:pi-mcp-adapter`, reads standard `.mcp.json`, speaks stdio.
 
-Observed:
+**The first pi numbers were contaminated and are withdrawn.** `--no-builtin-tools` keeps *extension*
+tools, and the machine's own globally installed pi extensions came with them — `web_search`,
+`fetch_content`, `resolve-library-id`, `subagent` and others, plus an attempt to reach an unrelated
+MCP server from the user's global config. The contamination was noticed and the numbers were
+tabulated anyway, which is worse than not noticing.
 
-- System prompt reported under 1,000 tokens; extensions documented as possible without forking.
-- Per-turn `Usage` carries `input`, `output`, `cacheRead`, `cacheWrite`, `reasoning` and a cost
-  breakdown — more than the loop in `bench/agent.py` collects today.
-- **No MCP support.** No mention in `pi-agent-core` or `pi-coding-agent`, and no MCP SDK in the
-  dependency tree; the only textual match in the published package is inside a vendored
-  `highlight.js`. `AgentContext` takes `tools` directly.
+Isolation turned out to be simple: point `HOME` and `USERPROFILE` at an empty directory. Everything
+below is from isolated runs.
 
-What that implies is a choice, not a fact: an MCP arm on pi means supplying the MCP client, which
-may be acceptable as an extension or may be the hand-crafting this spike set out to avoid.
+## What each stack did with task 1
 
-## Goose
+All three answered correctly. All three had the same 78 operations available.
 
-[Goose](https://github.com/block/goose) 1.45.0, Apache 2.0. Windows binary from the GitHub release,
-run against OpenRouter with `deepseek/deepseek-v4-flash`.
+| stack | how the operations are exposed | peak context | turns | tool calls |
+| --- | --- | ---: | ---: | ---: |
+| `bench/agent.py` (ours) | 78 schemas, eager | 21,292 | 2 | 1 |
+| Goose + generated MCP server | 78 schemas, eager | aggregate only | 2 | 1 |
+| pi + `pi-mcp-adapter`, isolated | one `mcp` proxy, search then call | **3,640** | 4 | 3 |
 
-Observed:
+pi, per turn:
 
-| flag | behaviour |
-| --- | --- |
-| `--with-extension <cmd>` | installs a stdio MCP server; the agent listed and called its tools |
-| `--no-profile` | loads nothing else; measured floor of **382 input tokens** for a trivial prompt |
-| `--output-format json` | full message list plus `input_tokens`, `output_tokens`, cache counters, `cost_usd` |
-| `--max-turns`, `--no-session`, `--provider` | turn ceiling, batch runs, provider override |
+| turn | input | cacheRead | context carried | output |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 986 | 0 | 986 | 101 |
+| 2 | 561 | 2,391 | 2,952 | 79 |
+| 3 | 3,122 | 0 | 3,122 | 84 |
+| 4 | 3,640 | 0 | 3,640 | 12 |
 
-`camara_mcp.py` generates the server from `bench/spec.py`, synthesising one function signature per
-operation so the SDK derives the JSON Schema rather than us writing it.
+For scale: the same run *before* isolation peaked near 33,135. The machine's own configuration was
+contributing roughly 29,000 tokens of context to every turn.
 
-End to end on task 1, all 78 operations installed:
+## What that shows, and what it does not
 
-```
-answer   JOSE ABILIO SILVA DE SANTANA        correct
-tokens   48,070 in · 113 out · $0.0045       1 tool call, 2 assistant turns
-```
+**pi and Goose ship opposite defaults on the disclosure axis.** Goose installs an MCP server as N
+tools; pi's adapter installs it as one proxy with a search form and a call form, so the schemas
+never enter the context. The axis this project treats as its central finding separates two shipped
+products, not two configurations we invented — which also means **choosing a harness silently picks
+a disclosure level**.
 
-## The measurement that is independent of any choice
+**A caution on reading the table.** One trial each. And the three stacks report cache differently —
+pi reports `input` excluding cache reads, Goose reports an OpenRouter aggregate, `bench/agent.py` a
+third convention. `peak context` above is `input + cacheRead` for pi and prompt tokens for ours;
+reconciling that properly is a prerequisite for any published comparison and is not done.
 
-A real MCP server renders larger than `bench/arms/mcp.py` says:
+An earlier reading of a tool listing was also wrong: the model enumerating 78 `camara_*` names was
+reporting what the proxy's *search* returned, not what was in its context. The tool calls in the
+trace are all `mcp`.
+
+## The measurement that is independent of any of this
+
+Generating a real MCP server from `bench/spec.py` (`camara_mcp.py`, signatures synthesised per
+operation so the SDK derives the schema — invariant 1 survives the move) shows our emitter
+understates a real server:
 
 | | tokens for 78 operations |
 | --- | ---: |
@@ -57,26 +74,32 @@ A real MCP server renders larger than `bench/arms/mcp.py` says:
 | real server, as the SDK renders it | 20,411 |
 | the same, with `output_schema` | 23,188 |
 
-Mostly optionality: the SDK writes `anyOf: [T, null]` where our emitter writes a bare type. On task
-1 the full stack spent 48,070 input tokens against 42,181 in our own loop, **+14%**.
+Mostly optionality: the SDK writes `anyOf: [T, null]` where our emitter writes a bare type. **This
+holds whichever harness runs it, and it goes against the direction the published figures argue.**
 
-**This holds regardless of which harness is chosen, and it goes against the direction the published
-figures argue.** Our static numbers understate a real MCP server.
+## Practical notes
+
+- Goose: `--with-extension` installs a stdio MCP server, `--no-profile` drops everything else,
+  `--output-format json` carries `input_tokens`/`output_tokens`/cache/`cost_usd` for the run,
+  `--max-turns`, `--no-session`, `--provider`. Floor with `--no-profile`: **382 input tokens**.
+- pi: `--print --mode json` emits a per-turn event stream with `input`, `output`, `reasoning`,
+  `cacheRead`, `cacheWrite` and cost per assistant message. `--system-prompt` sets the prompt
+  outright, `--no-builtin-tools` keeps extension tools only, `--no-tools` drops everything,
+  `--approve` is required for project-local packages. Isolation needs `HOME`/`USERPROFILE`.
 
 ## Not answered
 
-- **Per-turn telemetry.** `--output-format json` aggregates the run. `stream-json` and the session
-  JSONL were not examined, and `peak_context` cannot be computed without per-turn numbers.
-- Whether the CLI and baseline arms install as cleanly as the MCP one.
-- Whether Goose's tool-loading behaviour is configurable, or simply what it is.
-- Nothing was tried beyond these two. OpenCode, OpenHands and the platform agents were not
-  installed.
+- Reconciling cache accounting across stacks, without which the table above is indicative only.
+- Per-turn telemetry from Goose: `--output-format json` aggregates; `stream-json` and the session
+  JSONL were not examined.
+- Whether the CLI and baseline arms install as cleanly as the MCP one, on either.
+- Whether either harness's disclosure behaviour is configurable, or simply what it is.
+- Nothing beyond these two was tried. OpenCode, OpenHands and the platform agents were not installed.
 
 ## What a decision would rest on
 
-- Accepting a harness means giving up disclosure as a controlled variable: the harness decides when
-  it loads tools. That is the price of asking "what does a user actually pay" instead of "what does
-  the mechanism cost".
+- Accepting a harness means giving up disclosure as a controlled variable. Given that pi and Goose
+  differ precisely there, the choice of harness *is* a choice of disclosure level.
 - Keeping our own loop keeps the axes, and keeps the confound the four symmetry failures came from.
-- A third option was not explored: keep the loop for the mechanism study and use a harness only to
+- A third option, unexplored: keep the loop for the mechanism study and use a harness only to
   calibrate it, reporting the gap.
