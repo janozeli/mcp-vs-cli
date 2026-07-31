@@ -4,13 +4,13 @@
 
 - Layer 3: `CLAUDE.md` invariant 4
 - Layer 4: `runs/` — the traces the claim rests on
-- Layer 4: the aggregate from `scripts/summarise.py`, never a number remembered from a terminal
+- Layer 4: the aggregate from pi's own accounting, never a number remembered from a terminal
 
 ## Process
 
 One transformation: a measurement becomes a claim, with its confidence attached.
 
-1. Recompute from the traces. If `scripts/summarise.py` cannot produce the number, it is not
+1. Recompute from the traces. If pi's own accounting cannot produce the number, it is not
    publishable, whatever the run printed at the time.
 2. State the resolution before the result. The 22% single-trial spread bounds every claim in the
    repo, so it belongs above them, not in a footnote.

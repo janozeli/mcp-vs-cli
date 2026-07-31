@@ -5,38 +5,36 @@ tunes it; every later number is a distance from there.
 
 ## Stage 0 — the unoptimised triad
 
-Three formats, each in its honest default. **Implemented; not yet run with repeats.**
+Three formats, each in its honest default, all installed beside the same stock agent.
+**Implemented; not yet run with repeats.**
 
-| arm | what the model gets |
+| arm | what the user installed |
 | --- | --- |
-| `baseline` | an HTTP verb and a base URL. No documentation of any kind. |
-| `mcp` | every schema declared on connect, responses returned whole — the off-the-shelf server |
-| `cli` | one command tool, discovery through `--help`, responses returned whole |
+| `baseline` | nothing — a shell, and the API's own errors to learn from |
+| `mcp` | an MCP server exposing the 78 operations |
+| `cli` | a compiled binary on `PATH` |
 
-Defined in [`bench/triad.py`](bench/triad.py).
+Defined in [`src/triad.ts`](src/triad.ts). Every arm keeps unrestricted `bash`: that is the common
+denominator a terminal agent already has, and the arm is what sits beside it.
 
 ## Stage 1 — the optimisation ladder
 
 Introduce optimisations one at a time, **to all three arms wherever they apply**, and measure each as
 a delta against stage 0. Where an optimisation cannot apply to an arm, that asymmetry is the finding.
 
-Each must be an independent toggle, never a bundle, or a gain cannot be attributed. Several already
-exist in the codebase and were measured before the triad was framed; they are optimisations, not
-part of the baseline.
+Each must be an independent toggle, never a bundle, or a gain cannot be attributed.
 
 | optimisation | `baseline` | `mcp` | `cli` | state |
 | --- | --- | --- | --- | --- |
-| defer discovery | — | `tool_search` | `--help` | built |
-| preload documentation | fetch the spec | (is the default) | manual in prompt | built |
-| filter results | `_jq` argument | projection parameter | `\| jq` | built |
+| filter results | jq over curl | projection parameter | `\| jq` | artefacts support it; not measured |
 | compact output format | — | server returns TSV | `--format tsv` | not built |
 | truncate with a marker | — | cap arrays, say "N more" | `--limit` | not built |
-| errors that teach | (the API already does) | echo valid parameters | usage on error | not built |
+| errors that teach | (the API already does) | echo valid parameters | usage on error | commander does half |
 | trim descriptions | — | shorter tool descriptions | one-line help | not built |
 
 The expected result is convergence: an optimised `baseline` is a CLI built by accident. If the spread
 between arms narrows at every rung, the conclusion is that **the format is the default, not the
-ceiling** — which is a more useful claim than any winner.
+ceiling** — a more useful claim than any winner.
 
 Likely the largest single win, and untested: output format. 366 vote records as nested JSON against
 the same records as TSV.
@@ -47,28 +45,20 @@ A step-by-step walkthrough of the ladder, showing what each cheap optimisation r
 
 ## Instrumentation
 
-- **Complete per-turn logs.** Done, and no longer optional. Nothing caches API responses, so a trace
-  is the only place one survives: each turn now records its request, its response, and every tool
-  call with the bytes it returned. Both invariant 4 and the parity check rest on it.
-- **Parity between arms.** Live data cannot guarantee that two arms saw the same bytes, so
-  `scripts/verify_parity.py` measures it from the traces instead and reports any shared request that
-  diverged. A comparison that spans a change in the API is still usable, but only if it says so.
-- **Probe count per task, from the baseline.** How much the `baseline` arm has to probe is a
-  validity measure for each task. A task it answers in one call without probing has no discovery
-  cost, and therefore cannot discriminate between ways of documenting an API — task 1 is already
-  known to be one of these. Worth reporting next to every task.
+- **Accounting comes from pi**, not from a derivation of ours: per-turn usage with reasoning and
+  cache separated, plus `getContextUsage()`, the estimate pi itself uses for compaction.
+- **Probe count per task, from the baseline.** How much the `baseline` arm has to probe is a validity
+  measure for each task. A task it answers in one call without probing has no discovery cost, and
+  therefore cannot discriminate between ways of documenting an API — task 1 is already known to be
+  one of these. Worth reporting next to every task.
 
 ## Prerequisites, before any of it is publishable
 
-- **Re-run everything.** Every published number predates the removal of the recorded corpus and was
-  measured against data that no longer exists in this repository. They are evidence of what the
-  harness did, not measurements to cite.
-- **Repeats.** Two runs of an identical cell on an identical task produced 125,574 and 102,467
-  prompt tokens — a 22% spread at temperature 0, and now with live API variance on top. Any
-  optimisation worth less than that is unmeasurable until the noise comes down. The triad is cheap
-  enough to run at k=5.
-- **Re-run tasks 1–3.** Deferred cells were executing tools they had never loaded; fixed, but those
-  numbers are understated and stand withdrawn until redone.
-- **Rename the projection parameter.** `_jq` reads as private in every convention a model has seen,
-  so the null result for `mcp/filtered` may be an artefact of the name rather than of the format.
-- **Task 5, and the second model tier.**
+- **Re-run everything.** Every published figure predates the move to a stock harness, and the
+  run-time ones also predate the removal of the recorded corpus. All withdrawn.
+- **Repeats.** Two runs of an identical arm on an identical task have differed by a whole turn, with
+  live API variance on top. Any optimisation worth less than that is unmeasurable until the noise
+  comes down. The triad is cheap enough to run at k=5.
+- **Task 5, and a second model tier.**
+- **Decide what to do about task 1.** The baseline answers it in one call without probing, so it
+  measures no discovery cost at all.

@@ -1,19 +1,8 @@
 .venv/
-__pycache__/
-*.py[cod]
-.ruff_cache/
-.mypy_cache/
-.pytest_cache/
-.env
-runs/
-
-# spike environment (reinstall with: cd spike && bun install && ./node_modules/.bin/pi install npm:pi-mcp-adapter -l)
-spike/node_modules/
-spike/.pi/
-spike/bun.lock
-spike/*.jsonl
-spike/*.stderr
-spike/schemas.json
-
 node_modules/
 bin/
+runs/
+.env
+
+# bun
+bun.lockb

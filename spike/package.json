@@ -1,8 +1,0 @@
-{
-  "name": "mcp-vs-cli-spike",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.83.0"
-  }
-}

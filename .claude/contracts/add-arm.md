@@ -1,46 +1,47 @@
 # Contract — add or change an arm
 
-Covers a new format, a new disclosure level, a new handling mode, or any change to what an existing
-cell exposes.
+An arm is an *installation*: what a user put beside their agent. It is not a code path.
 
 ## Inputs
 
-- Layer 3: `CLAUDE.md` invariants 1 and 6; [`../reference/arm-symmetry.md`](../reference/arm-symmetry.md)
-- Layer 3: `bench/spec.py` — the `Registry` every surface must be generated from
-- Layer 3: `bench/arms/__init__.py` — `Disclosure`, `Handling`, and the shared `OBJECTIVE`
+- Layer 3: `CLAUDE.md` invariants 1, 2 and 7; [`../reference/arm-symmetry.md`](../reference/arm-symmetry.md)
+- Layer 3: `src/spec.ts` — the `Registry` every artefact must be generated from
+- Layer 3: `src/harness.ts` — the `Arm` shape and the settings every arm shares
 - Layer 4: none. This stage does not read run artifacts, and a change justified by a run result is a
   finding, not an arm change.
 
 ## Process
 
-One transformation: emit a surface from the registry. Nothing here decides what a task is, what a
-trial costs, or which claim survives.
+One transformation: describe what gets installed. Nothing here decides what a task is, what a trial
+costs, or which claim survives.
 
-1. Answer the three symmetry questions in writing, in the commit message. A change that cannot
-   answer them is not ready.
-2. Generate. Never hand-write a schema, a subcommand or a help line — if a capability has to be
-   typed out per arm, the registry is missing something and that is the actual change.
-3. Keep mechanism in the tool description, never in the system prompt. `OBJECTIVE` is byte-identical
-   across every cell and stays that way; a prompt that teaches a procedure is a treatment, not a
-   constant.
-4. Pay for the capability where it is used. A projection parameter costs schema tokens on every
-   tool; advertising a pipe costs description tokens. Both are correct — the cost is part of what is
-   being measured, so do not exempt one side from it.
-5. If the change belongs to level zero, update `bench/triad.py` and say why the new default is the
+1. Answer the three symmetry questions in writing, in the commit message. A change that cannot answer
+   them is not ready.
+2. Generate the artefact from the registry. Never hand-write a tool schema, a subcommand or a help
+   line — if a capability has to be typed out per arm, the registry is missing something and that is
+   the actual change.
+3. Prefer a library to your own code, especially for anything the experiment measures. The CLI help
+   is commander's for that reason: hand-rendered, it cost 42% less than what a real framework prints,
+   and the README had to carry a caveat about it.
+4. Every arm keeps unrestricted `bash`. That is the common denominator a terminal agent already has;
+   the arm is what sits beside it.
+5. Pay for the capability where it is used. A projection parameter costs schema tokens on every tool.
+   That cost is part of what is being measured, so do not exempt one side from it.
+6. If the change belongs to level zero, update `src/triad.ts` and say why the new default is the
    honest untuned one. Otherwise it is an optimisation and belongs in `ROADMAP.md`'s ladder table as
    an independent toggle, never bundled with another.
 
 ## Outputs
 
-- the emitter, under `bench/arms/`
-- an equivalence test proving every operation and parameter reaches the new surface, alongside
-  `tests/test_arms.py`
-- a `ROADMAP.md` or `bench/triad.py` entry, whichever applies
+- the artefact, under `src/artefacts/`
+- an equivalence test proving every operation and parameter reaches it, alongside
+  `src/artefacts/artefacts.test.ts`
+- a `ROADMAP.md` or `src/triad.ts` entry, whichever applies
 
 ## Acceptance
 
-- `uv run pytest` passes, including the equivalence tests
-- the surface's token cost appears in `uv run python -m bench.measure`
+- `bun run check` passes, including the equivalence tests
+- the artefact's token cost appears in `bun run measure`
 - no previously published number changed meaning without being addressed in `README.md`
 
 ## What this prevents

@@ -1,0 +1,44 @@
+/**
+ * The unoptimised triad: what each of the three formats looks like before anyone tunes it.
+ *
+ * This is level zero of the ladder, and a deliberate choice rather than a limitation. Every
+ * optimisation the project goes on to measure is a delta against these three, so they have to be the
+ * honest defaults — what you get without thinking about it.
+ *
+ * Every arm gets unrestricted `bash`. That is the common denominator a real terminal agent already
+ * has; the arm is what gets installed beside it.
+ */
+
+import type { Arm } from "./harness.ts";
+
+const REPO = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+
+export const TRIAD: readonly Arm[] = [
+  {
+    key: "baseline",
+    tools: ["bash"],
+    mcpServers: {},
+    pathAdditions: [],
+    why: "a shell and nothing else: the price of having no documentation at all",
+  },
+  {
+    key: "mcp",
+    tools: ["bash"],
+    mcpServers: { camara: `bun run ${REPO}src/artefacts/mcp-server.ts` },
+    pathAdditions: [],
+    why: "the user installed an MCP server; the client decides how it reaches the model",
+  },
+  {
+    key: "cli",
+    tools: ["bash"],
+    mcpServers: {},
+    pathAdditions: [`${REPO}bin`],
+    why: "the user installed a CLI; the shell it already had is how it gets called",
+  },
+];
+
+export function armByKey(key: string): Arm {
+  const found = TRIAD.find((arm) => arm.key === key);
+  if (!found) throw new Error(`unknown arm: '${key}'`);
+  return found;
+}
