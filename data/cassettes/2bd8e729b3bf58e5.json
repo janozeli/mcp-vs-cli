@@ -1,0 +1,44 @@
+{
+  "recorded_at": "2026-07-31T01:06:23Z",
+  "request": {
+    "canonical": "GET /deputados?nome=Socorro Neri&siglaUf=AC",
+    "method": "GET",
+    "params": {
+      "nome": "Socorro Neri",
+      "siglaUf": "AC"
+    },
+    "path": "/deputados"
+  },
+  "response": {
+    "body": {
+      "dados": [
+        {
+          "email": "dep.socorroneri@camara.leg.br",
+          "id": 104552,
+          "idLegislatura": 57,
+          "nome": "Socorro Neri",
+          "siglaPartido": "PP",
+          "siglaUf": "AC",
+          "uri": "https://dadosabertos.camara.leg.br/api/v2/deputados/104552",
+          "uriPartido": "https://dadosabertos.camara.leg.br/api/v2/partidos/37903",
+          "urlFoto": "https://www.camara.leg.br/internet/deputado/bandep/104552.jpg"
+        }
+      ],
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados?nome=Socorro%20Neri&siglaUf=AC",
+          "rel": "self"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados?nome=Socorro%20Neri&siglaUf=AC&pagina=1&itens=1000",
+          "rel": "first"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/deputados?nome=Socorro%20Neri&siglaUf=AC&pagina=1&itens=1000",
+          "rel": "last"
+        }
+      ]
+    },
+    "status": 200
+  }
+}

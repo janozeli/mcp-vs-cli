@@ -1,0 +1,135 @@
+{
+  "recorded_at": "2026-07-31T01:06:23Z",
+  "request": {
+    "canonical": "GET /votacoes/2400758-37",
+    "method": "GET",
+    "params": {},
+    "path": "/votacoes/2400758-37"
+  },
+  "response": {
+    "body": {
+      "dados": {
+        "aprovacao": 0,
+        "data": "2024-03-27",
+        "dataHoraRegistro": "2024-03-27T17:57:54",
+        "dataHoraUltimaAberturaVotacao": null,
+        "descUltimaAberturaVotacao": null,
+        "descricao": "Rejeitado o Requerimento. Sim: 106; não: 259; total: 365.",
+        "efeitosRegistrados": [],
+        "id": "2400758-37",
+        "idEvento": 72248,
+        "idOrgao": 180,
+        "objetosPossiveis": [
+          {
+            "ano": 0,
+            "codTipo": 870,
+            "dataApresentacao": "2024-03-27T16:45",
+            "ementa": "Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei nº 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados.",
+            "id": 2424024,
+            "numero": 1,
+            "siglaTipo": "EMP",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2424024"
+          },
+          {
+            "ano": 0,
+            "codTipo": 889,
+            "dataApresentacao": "2024-03-27T16:41",
+            "ementa": "Requerimento Procedimental Genérico - PLP 233/2023",
+            "id": 2424023,
+            "numero": 3,
+            "siglaTipo": "RPDR",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2424023"
+          },
+          {
+            "ano": 0,
+            "codTipo": 328,
+            "dataApresentacao": "2024-03-27T16:18",
+            "ementa": "Requerimento de Retirada de Matéria da Pauta - PLP 233/2023",
+            "id": 2424007,
+            "numero": 1,
+            "siglaTipo": "RPD",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2424007"
+          },
+          {
+            "ano": 0,
+            "codTipo": 332,
+            "dataApresentacao": "2024-03-27T16:18",
+            "ementa": "Requerimento de Votação Nominal-Requerimento de Retirada de Matéria da Pauta - PLP 233/2023",
+            "id": 2424009,
+            "numero": 2,
+            "siglaTipo": "RPD",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2424009"
+          },
+          {
+            "ano": 2024,
+            "codTipo": 392,
+            "dataApresentacao": "2024-03-19T15:00",
+            "ementa": "Requer, nos termos do artigo 155 do Regimento Interno, tramitação sob o regime urgência do Projeto de Lei Complementar nº 233, de 2023.",
+            "id": 2421859,
+            "numero": 769,
+            "siglaTipo": "REQ",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2421859"
+          },
+          {
+            "ano": 2023,
+            "codTipo": 404,
+            "dataApresentacao": "2023-12-12T19:02",
+            "ementa": "Solicita seja  cancelada, a urgência pedida com apoio no § 1 do art. 64 da Constituição para o Projeto de Lei Complementar nº 233, de 2023, que \"Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei nº 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados\"",
+            "id": 2412580,
+            "numero": 675,
+            "siglaTipo": "MSC",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2412580"
+          },
+          {
+            "ano": 0,
+            "codTipo": 891,
+            "dataApresentacao": "2023-12-02T10:55",
+            "ementa": "PARECER PROFERIDO EM PLENÁRIO AO PROJETO DE LEI COMPLEMENTAR N.º 233, DE 2023 , que \"Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei nº 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados\".",
+            "id": 2408902,
+            "numero": 1,
+            "siglaTipo": "PRLP",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2408902"
+          },
+          {
+            "ano": 2023,
+            "codTipo": 406,
+            "dataApresentacao": "2023-10-31T19:47",
+            "ementa": "Nos termos do § 1 do art. 64 da Constituição, submete à  deliberação do Congresso Nacional o texto do projeto de lei complementar que \"Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei º 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados\".",
+            "id": 2400773,
+            "numero": 567,
+            "siglaTipo": "MSC",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2400773"
+          }
+        ],
+        "proposicoesAfetadas": [
+          {
+            "ano": 2023,
+            "codTipo": 140,
+            "dataApresentacao": "2023-10-31T19:41",
+            "ementa": "Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei nº 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados. \n  NOVA EMENTA: Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito (SPVAT); altera o Decreto-Lei nº 73, de 21 de novembro de 1966, as Leis nºs 8.212, de 24 de julho de 1991, 9.503, de 23 de setembro de 1997 (Código de Trânsito Brasileiro), e 14.075, de 22 de outubro de 2020, e a Lei Complementar nº 200, de 30 de agosto de 2023; e revoga as Leis nºs 6.194, de 19 de dezembro de 1974, e 8.441, de 13 de julho de 1992, e dispositivos das Leis nºs 8.374, de 30 de dezembro de 1991, 11.482, de 31 de maio de 2007, e 11.945, de 4 de junho de 2009.",
+            "id": 2400758,
+            "numero": 233,
+            "siglaTipo": "PLP",
+            "uri": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2400758"
+          }
+        ],
+        "siglaOrgao": "PLEN",
+        "ultimaApresentacaoProposicao": {
+          "dataHoraRegistro": null,
+          "descricao": "Apresentação do PLP n. 233/2023 (Projeto de Lei Complementar), pelo Poder Executivo, que: \"Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito e altera o Decreto-Lei nº 73, de 21 de novembro de 1966, que dispõe sobre o Sistema Nacional de Seguros Privados. \n\r\n\r\nNOVA EMENTA: Dispõe sobre o Seguro Obrigatório para Proteção de Vítimas de Acidentes de Trânsito (SPVAT); altera o Decreto-Lei nº 73, de 21 de novembro de 1966, as Leis nºs 8.212, de 24 de julho de 1991, 9.503, de 23 de setembro de 1997 (Código de Trânsito Brasileiro), e 14.075, de 22 de outubro de 2020, e a Lei Complementar nº 200, de 30 de agosto de 2023; e revoga as Leis nºs 6.194, de 19 de dezembro de 1974, e 8.441, de 13 de julho de 1992, e dispositivos das Leis nºs 8.374, de 30 de dezembro de 1991, 11.482, de 31 de maio de 2007, e 11.945, de 4 de junho de 2009.\r\n\".",
+          "uriProposicaoCitada": null
+        },
+        "uri": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2400758-37",
+        "uriEvento": "https://dadosabertos.camara.leg.br/api/v2/eventos/72248",
+        "uriOrgao": "https://dadosabertos.camara.leg.br/api/v2/orgaos/180"
+      },
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2400758-37",
+          "rel": "self"
+        }
+      ]
+    },
+    "status": 200
+  }
+}

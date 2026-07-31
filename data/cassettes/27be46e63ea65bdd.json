@@ -1,0 +1,61 @@
+{
+  "recorded_at": "2026-07-31T01:06:23Z",
+  "request": {
+    "canonical": "GET /eventos/72248/votacoes",
+    "method": "GET",
+    "params": {},
+    "path": "/eventos/72248/votacoes"
+  },
+  "response": {
+    "body": {
+      "dados": [
+        {
+          "aprovacao": 0,
+          "data": "2024-03-27",
+          "dataHoraRegistro": "2024-03-27T17:57:54",
+          "descricao": "Rejeitado o Requerimento. Sim: 106; não: 259; total: 365.",
+          "id": "2400758-37",
+          "proposicaoObjeto": null,
+          "siglaOrgao": "PLEN",
+          "uri": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2400758-37",
+          "uriEvento": "https://dadosabertos.camara.leg.br/api/v2/eventos/72248",
+          "uriOrgao": "https://dadosabertos.camara.leg.br/api/v2/orgaos/180",
+          "uriProposicaoObjeto": null
+        },
+        {
+          "aprovacao": 1,
+          "data": "2024-03-27",
+          "dataHoraRegistro": "2024-03-27T17:20:29",
+          "descricao": "Aprovada a Redação Final assinada pelo relator Dep. Raniery Paulino (REPUBLIC-PB).",
+          "id": "2401227-50",
+          "proposicaoObjeto": null,
+          "siglaOrgao": "PLEN",
+          "uri": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2401227-50",
+          "uriEvento": "https://dadosabertos.camara.leg.br/api/v2/eventos/72248",
+          "uriOrgao": "https://dadosabertos.camara.leg.br/api/v2/orgaos/180",
+          "uriProposicaoObjeto": null
+        },
+        {
+          "aprovacao": 1,
+          "data": "2024-03-27",
+          "dataHoraRegistro": "2024-03-27T17:19:33",
+          "descricao": "Aprovada a Subemenda Substitutiva Global ao Projeto de Lei nº 5.350, de 2023, adotada pelo relator da Comissão de Desenvolvimento Urbano.",
+          "id": "2401227-47",
+          "proposicaoObjeto": null,
+          "siglaOrgao": "PLEN",
+          "uri": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2401227-47",
+          "uriEvento": "https://dadosabertos.camara.leg.br/api/v2/eventos/72248",
+          "uriOrgao": "https://dadosabertos.camara.leg.br/api/v2/orgaos/180",
+          "uriProposicaoObjeto": null
+        }
+      ],
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/eventos/72248/votacoes",
+          "rel": "self"
+        }
+      ]
+    },
+    "status": 200
+  }
+}

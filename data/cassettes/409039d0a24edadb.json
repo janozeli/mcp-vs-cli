@@ -1,0 +1,21 @@
+{
+  "recorded_at": "2026-07-31T01:06:24Z",
+  "request": {
+    "canonical": "GET /votacoes/2401227-50/votos",
+    "method": "GET",
+    "params": {},
+    "path": "/votacoes/2401227-50/votos"
+  },
+  "response": {
+    "body": {
+      "dados": [],
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/votacoes/2401227-50/votos",
+          "rel": "self"
+        }
+      ]
+    },
+    "status": 200
+  }
+}
