@@ -1,0 +1,286 @@
+"""The agent loop: one task, one cell of the design, one transcript on disk.
+
+Every request and every response is written to JSONL before anything is summarised, so each published
+figure can be recomputed by someone who does not trust the summary. Token counts come from the
+provider's own `usage`, not from a local tokeniser — what the model was billed for is not something
+this repo gets to have an opinion about.
+
+Two numbers are kept apart on purpose. `peak_context` is the largest prompt the run ever sent: the
+window actually occupied, which prompt caching does not give back. `prompt_tokens` is their sum
+across turns: what the run cost. Conflating them is how the MCP argument usually goes wrong.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from openai import OpenAI
+
+from bench import config, tokens
+from bench.arms import Disclosure
+from bench.arms import cli as cli_arm
+from bench.arms import mcp as mcp_arm
+from bench.execute import call_operation, run_command
+from bench.replay import Cassette, CassetteMiss
+from bench.spec import Registry
+from bench.tasks import Task
+
+MAX_TURNS = 12
+PREFIX = "camara__"
+
+# Free endpoints answer HTTP 200 with `choices: null` and an error object when the upstream provider
+# is out of capacity. That is transient and says nothing about the arm being measured, so it is
+# retried rather than scored. Every attempt still lands in the trace.
+RETRYABLE = ("resourceexhausted", "rate limit", "rate-limit", "overloaded", "timeout", "try again")
+BACKOFF_SECONDS = (2, 5, 12, 30, 60)
+
+# How many tool definitions a deferred search loads at once. A client that returned everything on
+# every search would not be deferring anything.
+SEARCH_LIMIT = 5
+
+
+@dataclass(slots=True)
+class Trial:
+    """The outcome of one task in one cell, plus everything needed to audit it."""
+
+    task_id: str
+    arm: str
+    model: str
+    success: bool = False
+    answer: str = ""
+    turns: int = 0
+    tool_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    peak_context: int = 0
+    tool_output_tokens: int = 0
+    upfront_tokens: int = 0
+    resolved_models: list[str] = field(default_factory=list)
+    aborted: str | None = None
+    trace: str = ""
+
+
+def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list[str]]:
+    """Resolve a `tool_search` query to full tool definitions, as a deferring client would."""
+    terms = [t.strip().lower() for t in query.replace(",", " ").split() if t.strip()]
+    scored: list[tuple[int, str]] = []
+    for op in registry:
+        haystack = f"{op.name} {op.summary} {op.group}".lower()
+        score = sum(1 for term in terms if term.lstrip(PREFIX) in haystack)
+        if score:
+            scored.append((score, op.name))
+    scored.sort(key=lambda pair: (-pair[0], pair[1]))
+    names = [name for _, name in scored[:SEARCH_LIMIT]]
+    if not names:
+        return f"No tools matched {query!r}. Try broader keywords.", []
+    loaded.update(names)
+    definitions = [mcp_arm.tool_definition(registry.by_name(n), prefix=PREFIX) for n in names]
+    return json.dumps(definitions, ensure_ascii=False), names
+
+
+def _tools_for_turn(
+    registry: Registry, fmt: str, disclosure: Disclosure, loaded: set[str]
+) -> list[dict[str, Any]]:
+    if fmt == "cli":
+        return cli_arm.tools_for(registry, disclosure=disclosure)
+    if disclosure == "eager":
+        return mcp_arm.tool_definitions(registry, prefix=PREFIX)
+    # Deferred: the search tool, plus whatever the model has pulled in so far.
+    definitions = [mcp_arm.search_tool_definition()]
+    definitions.extend(
+        mcp_arm.tool_definition(registry.by_name(name), prefix=PREFIX) for name in sorted(loaded)
+    )
+    return definitions
+
+
+def _system_prompt(registry: Registry, fmt: str, disclosure: Disclosure) -> str:
+    if fmt == "cli":
+        return cli_arm.system_prompt(registry, disclosure=disclosure)
+    return mcp_arm.system_prompt(registry, disclosure=disclosure, prefix=PREFIX)
+
+
+def run_trial(
+    task: Task,
+    *,
+    fmt: str,
+    disclosure: Disclosure,
+    registry: Registry,
+    cassette: Cassette,
+    client: OpenAI,
+    model: str = config.MODEL,
+    trace_dir: Path | None = None,
+    max_turns: int = MAX_TURNS,
+) -> Trial:
+    """Run one task in one cell, writing a full transcript as it goes."""
+    arm = f"{fmt}/{disclosure}"
+    trial = Trial(task_id=task.id, arm=arm, model=model)
+
+    system = _system_prompt(registry, fmt, disclosure)
+    loaded: set[str] = set()
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": task.question},
+    ]
+
+    trace_path: Path | None = None
+    if trace_dir is not None:
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        trace_path = trace_dir / f"{task.id}__{fmt}-{disclosure}.jsonl"
+        trace_path.write_text("", encoding="utf-8")
+        trial.trace = str(trace_path)
+
+    def record(event: dict[str, Any]) -> None:
+        if trace_path is not None:
+            with trace_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+    trial.upfront_tokens = tokens.count_json(
+        _tools_for_turn(registry, fmt, disclosure, loaded)
+    ) + tokens.count_text(system)
+
+    for turn in range(1, max_turns + 1):
+        tools = _tools_for_turn(registry, fmt, disclosure, loaded)
+        request = {
+            "model": model,
+            "messages": messages,
+            "tools": tools,
+            "temperature": config.TEMPERATURE,
+        }
+        record({"turn": turn, "request": request})
+        raw, failure = _complete_with_retry(client, request, record, turn)
+        if raw is None:
+            trial.aborted = f"provider error on turn {turn}: {failure}"
+            return trial
+        record({"turn": turn, "response": raw})
+
+        trial.turns = turn
+        trial.resolved_models.append(str(raw.get("model", model)))
+        usage = raw.get("usage") or {}
+        prompt_tokens = int(usage.get("prompt_tokens") or 0)
+        trial.prompt_tokens += prompt_tokens
+        trial.completion_tokens += int(usage.get("completion_tokens") or 0)
+        trial.peak_context = max(trial.peak_context, prompt_tokens)
+
+        choice = raw["choices"][0]["message"]
+        calls = choice.get("tool_calls") or []
+        messages.append({k: v for k, v in choice.items() if k in {"role", "content", "tool_calls"}})
+
+        if not calls:
+            trial.answer = (choice.get("content") or "").strip()
+            trial.success = task.check(trial.answer)
+            return trial
+
+        for call in calls:
+            name = call["function"]["name"]
+            try:
+                arguments = json.loads(call["function"]["arguments"] or "{}")
+            except json.JSONDecodeError:
+                arguments = {}
+            trial.tool_calls += 1
+
+            try:
+                output = _dispatch(registry, cassette, fmt, name, arguments, loaded)
+            except CassetteMiss as miss:
+                # Never fabricate a response: an unrecorded call means the corpus is incomplete, and
+                # a run built on invented data would be worse than no run.
+                trial.aborted = f"cassette miss on turn {turn}: {miss}"
+                record({"turn": turn, "tool_call": call, "error": trial.aborted})
+                return trial
+
+            trial.tool_output_tokens += tokens.count_text(output)
+            record({"turn": turn, "tool_call": call, "output_tokens": tokens.count_text(output)})
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": output})
+
+    trial.aborted = f"gave up after {max_turns} turns"
+    return trial
+
+
+def _complete(client: OpenAI, request: dict[str, Any]) -> dict[str, Any]:
+    """Send exactly the dict that was traced.
+
+    The request is built once and both sent and recorded, so the transcript cannot drift from what
+    the provider actually received. `usage.include` asks OpenRouter for the underlying provider's
+    own token counts rather than its estimate.
+    """
+    create: Any = client.chat.completions.create
+    completion = create(**request, extra_body={"usage": {"include": True}})
+    result: dict[str, Any] = completion.model_dump()
+    return result
+
+
+def _error_of(raw: dict[str, Any]) -> str | None:
+    """A completion that carries no choices is an error, whatever status code it arrived with."""
+    if raw.get("choices"):
+        return None
+    error = raw.get("error") or {}
+    message = error.get("message") if isinstance(error, dict) else None
+    return str(message or "response contained no choices")
+
+
+def _is_transient(message: str) -> bool:
+    lowered = message.lower()
+    return any(marker in lowered for marker in RETRYABLE)
+
+
+def _complete_with_retry(
+    client: OpenAI,
+    request: dict[str, Any],
+    record: Any,
+    turn: int,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Retry transient upstream failures, and record every attempt.
+
+    A capacity error from a free endpoint is noise about the provider, not signal about the arm. It
+    would be dishonest to score a cell lower because its trial happened to land on a busy worker.
+    """
+    last: str = "unknown error"
+    for attempt, pause in enumerate((0, *BACKOFF_SECONDS)):
+        if pause:
+            time.sleep(pause)
+        try:
+            raw = _complete(client, request)
+        except Exception as exc:
+            last = f"{type(exc).__name__}: {exc}"
+            record({"turn": turn, "attempt": attempt, "error": last})
+            if not _is_transient(last):
+                return None, last
+            continue
+
+        failure = _error_of(raw)
+        if failure is None:
+            if attempt:
+                record({"turn": turn, "attempt": attempt, "note": "recovered after retry"})
+            return raw, None
+
+        last = failure
+        record({"turn": turn, "attempt": attempt, "response": raw, "error": failure})
+        if not _is_transient(failure):
+            return None, failure
+
+    return None, f"gave up after {len(BACKOFF_SECONDS)} retries: {last}"
+
+
+def _dispatch(
+    registry: Registry,
+    cassette: Cassette,
+    fmt: str,
+    name: str,
+    arguments: dict[str, Any],
+    loaded: set[str],
+) -> str:
+    if fmt == "cli":
+        if name != "run_cli":
+            return f"error: no such tool {name!r}"
+        return run_command(registry, cassette, str(arguments.get("command", ""))).text
+    if name == "tool_search":
+        text, _ = _search(registry, str(arguments.get("query", "")), loaded)
+        return text
+    return call_operation(registry, cassette, name, arguments, prefix=PREFIX).text
+
+
+def summarise(trial: Trial) -> dict[str, Any]:
+    return asdict(trial)

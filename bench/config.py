@@ -14,13 +14,14 @@ API_KEY_ENV = "OPENROUTER_API_KEY"
 # Pinned rather than routed: `openrouter/auto` and `openrouter/free` choose a model per request, so
 # two cells could run on different models and the comparison would stop being about exposure.
 #
-# Two tiers of one family, so that a difference between them is capacity rather than vendor. If the
-# cost of carrying context hurts the smaller model more, that is a finding in itself.
-LARGE_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"  # 1M context
-SMALL_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"  # 262k context
+# Paid, and deliberately so. Free endpoints answer with `ResourceExhausted` under any real load, and
+# a trial that dies because it landed on a busy worker says nothing about the arm it was measuring.
+# At $0.14/M in and $0.28/M out the whole battery costs less than the time spent retrying.
+PRIMARY_MODEL = "deepseek/deepseek-v4-flash"  # 1M context
+SECOND_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"  # 262k context, a second tier to compare against
 
-MODELS = (LARGE_MODEL, SMALL_MODEL)
-MODEL = LARGE_MODEL
+MODELS = (PRIMARY_MODEL, SECOND_MODEL)
+MODEL = PRIMARY_MODEL
 
 # Sampling is fixed across every cell and every trial. Nothing about the comparison should depend on
 # the die roll.

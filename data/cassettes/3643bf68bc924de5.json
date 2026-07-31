@@ -1,0 +1,1294 @@
+{
+  "recorded_at": "2026-07-31T01:18:21Z",
+  "request": {
+    "canonical": "GET /referencias/deputados",
+    "method": "GET",
+    "params": {},
+    "path": "/referencias/deputados"
+  },
+  "response": {
+    "body": {
+      "dados": {
+        "codTipoProfissao": [
+          {
+            "cod": "1",
+            "descricao": "",
+            "nome": "Administrador",
+            "sigla": ""
+          },
+          {
+            "cod": "6",
+            "descricao": "",
+            "nome": "Advogado",
+            "sigla": ""
+          },
+          {
+            "cod": "8",
+            "descricao": "",
+            "nome": "Aeroviário",
+            "sigla": ""
+          },
+          {
+            "cod": "9",
+            "descricao": "",
+            "nome": "Agente de viagem",
+            "sigla": ""
+          },
+          {
+            "cod": "12",
+            "descricao": "",
+            "nome": "Agricultor",
+            "sigla": ""
+          },
+          {
+            "cod": "15",
+            "descricao": "",
+            "nome": "Agrimensor",
+            "sigla": ""
+          },
+          {
+            "cod": "17",
+            "descricao": "",
+            "nome": "Agrônomo",
+            "sigla": ""
+          },
+          {
+            "cod": "18",
+            "descricao": "",
+            "nome": "Agropecuarista",
+            "sigla": ""
+          },
+          {
+            "cod": "20",
+            "descricao": "",
+            "nome": "Alfaiate",
+            "sigla": ""
+          },
+          {
+            "cod": "22",
+            "descricao": "",
+            "nome": "Analista de sistemas",
+            "sigla": ""
+          },
+          {
+            "cod": "23",
+            "descricao": "",
+            "nome": "Analista financeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "24",
+            "descricao": "",
+            "nome": "Animador",
+            "sigla": ""
+          },
+          {
+            "cod": "25",
+            "descricao": "",
+            "nome": "Antropólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "26",
+            "descricao": "",
+            "nome": "Apontador",
+            "sigla": ""
+          },
+          {
+            "cod": "29",
+            "descricao": "",
+            "nome": "Armador",
+            "sigla": ""
+          },
+          {
+            "cod": "31",
+            "descricao": "",
+            "nome": "Arquiteto",
+            "sigla": ""
+          },
+          {
+            "cod": "32",
+            "descricao": "",
+            "nome": "Arrais",
+            "sigla": ""
+          },
+          {
+            "cod": "33",
+            "descricao": "",
+            "nome": "Artista plástico",
+            "sigla": ""
+          },
+          {
+            "cod": "36",
+            "descricao": "",
+            "nome": "Assistente social",
+            "sigla": ""
+          },
+          {
+            "cod": "37",
+            "descricao": "",
+            "nome": "Astrônomo",
+            "sigla": ""
+          },
+          {
+            "cod": "38",
+            "descricao": "",
+            "nome": "Atleta profissional",
+            "sigla": ""
+          },
+          {
+            "cod": "40",
+            "descricao": "",
+            "nome": "Ator",
+            "sigla": ""
+          },
+          {
+            "cod": "46",
+            "descricao": "",
+            "nome": "Auxiliar de cartório",
+            "sigla": ""
+          },
+          {
+            "cod": "47",
+            "descricao": "",
+            "nome": "Auxiliar de contabilidade",
+            "sigla": ""
+          },
+          {
+            "cod": "48",
+            "descricao": "",
+            "nome": "Auxiliar de enfermagem",
+            "sigla": ""
+          },
+          {
+            "cod": "49",
+            "descricao": "",
+            "nome": "Auxiliar de escritório",
+            "sigla": ""
+          },
+          {
+            "cod": "56",
+            "descricao": "",
+            "nome": "Avicultor",
+            "sigla": ""
+          },
+          {
+            "cod": "73",
+            "descricao": "",
+            "nome": "Balconista",
+            "sigla": ""
+          },
+          {
+            "cod": "74",
+            "descricao": "",
+            "nome": "Bancário",
+            "sigla": ""
+          },
+          {
+            "cod": "75",
+            "descricao": "",
+            "nome": "Banqueiro",
+            "sigla": ""
+          },
+          {
+            "cod": "76",
+            "descricao": "",
+            "nome": "Bibliotecário",
+            "sigla": ""
+          },
+          {
+            "cod": "77",
+            "descricao": "",
+            "nome": "Biólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "78",
+            "descricao": "",
+            "nome": "Biomédico",
+            "sigla": ""
+          },
+          {
+            "cod": "79",
+            "descricao": "",
+            "nome": "Bioquímico",
+            "sigla": ""
+          },
+          {
+            "cod": "86",
+            "descricao": "",
+            "nome": "Caldeireiro",
+            "sigla": ""
+          },
+          {
+            "cod": "92",
+            "descricao": "",
+            "nome": "Carpinteiro",
+            "sigla": ""
+          },
+          {
+            "cod": "94",
+            "descricao": "",
+            "nome": "Cientista político",
+            "sigla": ""
+          },
+          {
+            "cod": "101",
+            "descricao": "",
+            "nome": "Comerciário",
+            "sigla": ""
+          },
+          {
+            "cod": "103",
+            "descricao": "",
+            "nome": "Comunicador",
+            "sigla": ""
+          },
+          {
+            "cod": "112",
+            "descricao": "",
+            "nome": "Construtor civil",
+            "sigla": ""
+          },
+          {
+            "cod": "113",
+            "descricao": "",
+            "nome": "Consultor",
+            "sigla": ""
+          },
+          {
+            "cod": "123",
+            "descricao": "",
+            "nome": "Contador",
+            "sigla": ""
+          },
+          {
+            "cod": "127",
+            "descricao": "",
+            "nome": "Controlador de voo",
+            "sigla": ""
+          },
+          {
+            "cod": "133",
+            "descricao": "",
+            "nome": "Corretor",
+            "sigla": ""
+          },
+          {
+            "cod": "138",
+            "descricao": "",
+            "nome": "Defensor público",
+            "sigla": ""
+          },
+          {
+            "cod": "140",
+            "descricao": "",
+            "nome": "Delegado de polícia",
+            "sigla": ""
+          },
+          {
+            "cod": "146",
+            "descricao": "",
+            "nome": "Dentista",
+            "sigla": ""
+          },
+          {
+            "cod": "148",
+            "descricao": "",
+            "nome": "Desenhista",
+            "sigla": ""
+          },
+          {
+            "cod": "155",
+            "descricao": "",
+            "nome": "Digitador",
+            "sigla": ""
+          },
+          {
+            "cod": "156",
+            "descricao": "",
+            "nome": "Diplomata",
+            "sigla": ""
+          },
+          {
+            "cod": "171",
+            "descricao": "",
+            "nome": "Economista",
+            "sigla": ""
+          },
+          {
+            "cod": "175",
+            "descricao": "",
+            "nome": "Eletricista",
+            "sigla": ""
+          },
+          {
+            "cod": "180",
+            "descricao": "",
+            "nome": "Empregado público",
+            "sigla": ""
+          },
+          {
+            "cod": "182",
+            "descricao": "",
+            "nome": "Empresário",
+            "sigla": ""
+          },
+          {
+            "cod": "193",
+            "descricao": "",
+            "nome": "Enfermeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "195",
+            "descricao": "",
+            "nome": "Engenheiro",
+            "sigla": ""
+          },
+          {
+            "cod": "220",
+            "descricao": "",
+            "nome": "Engraxate",
+            "sigla": ""
+          },
+          {
+            "cod": "221",
+            "descricao": "",
+            "nome": "Escritor",
+            "sigla": ""
+          },
+          {
+            "cod": "222",
+            "descricao": "",
+            "nome": "Escriturário",
+            "sigla": ""
+          },
+          {
+            "cod": "230",
+            "descricao": "",
+            "nome": "Estatístico",
+            "sigla": ""
+          },
+          {
+            "cod": "233",
+            "descricao": "",
+            "nome": "Estudante",
+            "sigla": ""
+          },
+          {
+            "cod": "236",
+            "descricao": "",
+            "nome": "Extensionista",
+            "sigla": ""
+          },
+          {
+            "cod": "239",
+            "descricao": "",
+            "nome": "Farmacêutico",
+            "sigla": ""
+          },
+          {
+            "cod": "242",
+            "descricao": "",
+            "nome": "Fazendeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "243",
+            "descricao": "",
+            "nome": "Ferramenteiro",
+            "sigla": ""
+          },
+          {
+            "cod": "244",
+            "descricao": "",
+            "nome": "Ferroviário",
+            "sigla": ""
+          },
+          {
+            "cod": "246",
+            "descricao": "",
+            "nome": "Filósofo",
+            "sigla": ""
+          },
+          {
+            "cod": "250",
+            "descricao": "",
+            "nome": "Fisioterapeuta",
+            "sigla": ""
+          },
+          {
+            "cod": "252",
+            "descricao": "",
+            "nome": "Fotógrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "257",
+            "descricao": "",
+            "nome": "Garimpeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "261",
+            "descricao": "",
+            "nome": "Geógrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "262",
+            "descricao": "",
+            "nome": "Geólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "266",
+            "descricao": "",
+            "nome": "Gestor público",
+            "sigla": ""
+          },
+          {
+            "cod": "268",
+            "descricao": "",
+            "nome": "Historiador",
+            "sigla": ""
+          },
+          {
+            "cod": "277",
+            "descricao": "",
+            "nome": "Industriário",
+            "sigla": ""
+          },
+          {
+            "cod": "283",
+            "descricao": "",
+            "nome": "Jornaleiro",
+            "sigla": ""
+          },
+          {
+            "cod": "284",
+            "descricao": "",
+            "nome": "Jornalista",
+            "sigla": ""
+          },
+          {
+            "cod": "285",
+            "descricao": "",
+            "nome": "Juiz",
+            "sigla": ""
+          },
+          {
+            "cod": "292",
+            "descricao": "",
+            "nome": "Litógrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "293",
+            "descricao": "",
+            "nome": "Livreiro",
+            "sigla": ""
+          },
+          {
+            "cod": "296",
+            "descricao": "",
+            "nome": "Madeireiro",
+            "sigla": ""
+          },
+          {
+            "cod": "300",
+            "descricao": "",
+            "nome": "Marceneiro",
+            "sigla": ""
+          },
+          {
+            "cod": "306",
+            "descricao": "",
+            "nome": "Matemático",
+            "sigla": ""
+          },
+          {
+            "cod": "307",
+            "descricao": "",
+            "nome": "Mecânico",
+            "sigla": ""
+          },
+          {
+            "cod": "309",
+            "descricao": "",
+            "nome": "Médico",
+            "sigla": ""
+          },
+          {
+            "cod": "318",
+            "descricao": "",
+            "nome": "Médico veterinário",
+            "sigla": ""
+          },
+          {
+            "cod": "321",
+            "descricao": "",
+            "nome": "Metalúrgico",
+            "sigla": ""
+          },
+          {
+            "cod": "322",
+            "descricao": "",
+            "nome": "Meteorologista",
+            "sigla": ""
+          },
+          {
+            "cod": "324",
+            "descricao": "",
+            "nome": "Militar",
+            "sigla": ""
+          },
+          {
+            "cod": "328",
+            "descricao": "",
+            "nome": "Minerador",
+            "sigla": ""
+          },
+          {
+            "cod": "334",
+            "descricao": "",
+            "nome": "Motorista profissional",
+            "sigla": ""
+          },
+          {
+            "cod": "335",
+            "descricao": "",
+            "nome": "Museólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "337",
+            "descricao": "",
+            "nome": "Músico",
+            "sigla": ""
+          },
+          {
+            "cod": "352",
+            "descricao": "",
+            "nome": "Operário",
+            "sigla": ""
+          },
+          {
+            "cod": "355",
+            "descricao": "",
+            "nome": "Orientador educacional",
+            "sigla": ""
+          },
+          {
+            "cod": "358",
+            "descricao": "",
+            "nome": "Padeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "359",
+            "descricao": "",
+            "nome": "Padre",
+            "sigla": ""
+          },
+          {
+            "cod": "360",
+            "descricao": "",
+            "nome": "Pastor",
+            "sigla": ""
+          },
+          {
+            "cod": "364",
+            "descricao": "",
+            "nome": "Pecuarista",
+            "sigla": ""
+          },
+          {
+            "cod": "366",
+            "descricao": "",
+            "nome": "Pedagogo",
+            "sigla": ""
+          },
+          {
+            "cod": "367",
+            "descricao": "",
+            "nome": "Pescador",
+            "sigla": ""
+          },
+          {
+            "cod": "369",
+            "descricao": "",
+            "nome": "Pesquisador",
+            "sigla": ""
+          },
+          {
+            "cod": "372",
+            "descricao": "",
+            "nome": "Pintor",
+            "sigla": ""
+          },
+          {
+            "cod": "373",
+            "descricao": "",
+            "nome": "Piscicultor",
+            "sigla": ""
+          },
+          {
+            "cod": "374",
+            "descricao": "",
+            "nome": "Poeta",
+            "sigla": ""
+          },
+          {
+            "cod": "381",
+            "descricao": "",
+            "nome": "Procurador de justiça",
+            "sigla": ""
+          },
+          {
+            "cod": "388",
+            "descricao": "",
+            "nome": "Produtor cultural",
+            "sigla": ""
+          },
+          {
+            "cod": "391",
+            "descricao": "",
+            "nome": "Professor",
+            "sigla": ""
+          },
+          {
+            "cod": "412",
+            "descricao": "",
+            "nome": "Programador de produção",
+            "sigla": ""
+          },
+          {
+            "cod": "413",
+            "descricao": "",
+            "nome": "Promotor de justiça",
+            "sigla": ""
+          },
+          {
+            "cod": "416",
+            "descricao": "",
+            "nome": "Proprietário rural",
+            "sigla": ""
+          },
+          {
+            "cod": "417",
+            "descricao": "",
+            "nome": "Psicanalista",
+            "sigla": ""
+          },
+          {
+            "cod": "419",
+            "descricao": "",
+            "nome": "Psicólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "421",
+            "descricao": "",
+            "nome": "Publicitário",
+            "sigla": ""
+          },
+          {
+            "cod": "422",
+            "descricao": "",
+            "nome": "Químico",
+            "sigla": ""
+          },
+          {
+            "cod": "427",
+            "descricao": "",
+            "nome": "Radiotelegrafista",
+            "sigla": ""
+          },
+          {
+            "cod": "430",
+            "descricao": "",
+            "nome": "Relações públicas",
+            "sigla": ""
+          },
+          {
+            "cod": "433",
+            "descricao": "",
+            "nome": "Representante comercial",
+            "sigla": ""
+          },
+          {
+            "cod": "441",
+            "descricao": "",
+            "nome": "Secretário",
+            "sigla": ""
+          },
+          {
+            "cod": "446",
+            "descricao": "",
+            "nome": "Seringueiro",
+            "sigla": ""
+          },
+          {
+            "cod": "448",
+            "descricao": "",
+            "nome": "Serventuário da justiça",
+            "sigla": ""
+          },
+          {
+            "cod": "449",
+            "descricao": "",
+            "nome": "Servidor público",
+            "sigla": ""
+          },
+          {
+            "cod": "455",
+            "descricao": "",
+            "nome": "Siderúrgico",
+            "sigla": ""
+          },
+          {
+            "cod": "456",
+            "descricao": "",
+            "nome": "Sindicalista",
+            "sigla": ""
+          },
+          {
+            "cod": "457",
+            "descricao": "",
+            "nome": "Sociólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "459",
+            "descricao": "",
+            "nome": "Tabelião",
+            "sigla": ""
+          },
+          {
+            "cod": "461",
+            "descricao": "",
+            "nome": "Taquígrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "463",
+            "descricao": "",
+            "nome": "Tecelão",
+            "sigla": ""
+          },
+          {
+            "cod": "494",
+            "descricao": "",
+            "nome": "Telegrafista",
+            "sigla": ""
+          },
+          {
+            "cod": "496",
+            "descricao": "",
+            "nome": "Teólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "497",
+            "descricao": "",
+            "nome": "Tesoureiro",
+            "sigla": ""
+          },
+          {
+            "cod": "498",
+            "descricao": "",
+            "nome": "Tipógrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "499",
+            "descricao": "",
+            "nome": "Topógrafo",
+            "sigla": ""
+          },
+          {
+            "cod": "500",
+            "descricao": "",
+            "nome": "Torneiro mecânico",
+            "sigla": ""
+          },
+          {
+            "cod": "503",
+            "descricao": "",
+            "nome": "Tradutor",
+            "sigla": ""
+          },
+          {
+            "cod": "506",
+            "descricao": "",
+            "nome": "Vendedor",
+            "sigla": ""
+          },
+          {
+            "cod": "510",
+            "descricao": "",
+            "nome": "Vigilante",
+            "sigla": ""
+          },
+          {
+            "cod": "852",
+            "descricao": "",
+            "nome": "Agente fiscal",
+            "sigla": ""
+          },
+          {
+            "cod": "853",
+            "descricao": "",
+            "nome": "Analista agroindustrial",
+            "sigla": ""
+          },
+          {
+            "cod": "854",
+            "descricao": "",
+            "nome": "Analista de orçamento",
+            "sigla": ""
+          },
+          {
+            "cod": "855",
+            "descricao": "",
+            "nome": "Assessor",
+            "sigla": ""
+          },
+          {
+            "cod": "856",
+            "descricao": "",
+            "nome": "Auditor",
+            "sigla": ""
+          },
+          {
+            "cod": "857",
+            "descricao": "",
+            "nome": "Auxiliar administrativo",
+            "sigla": ""
+          },
+          {
+            "cod": "858",
+            "descricao": "",
+            "nome": "Auxiliar de laboratório de análises clínicas",
+            "sigla": ""
+          },
+          {
+            "cod": "859",
+            "descricao": "",
+            "nome": "Bispo",
+            "sigla": ""
+          },
+          {
+            "cod": "860",
+            "descricao": "",
+            "nome": "Bombeiro",
+            "sigla": ""
+          },
+          {
+            "cod": "861",
+            "descricao": "",
+            "nome": "Caprinocultor",
+            "sigla": ""
+          },
+          {
+            "cod": "862",
+            "descricao": "",
+            "nome": "Comunicólogo",
+            "sigla": ""
+          },
+          {
+            "cod": "863",
+            "descricao": "",
+            "nome": "Criador de animais",
+            "sigla": ""
+          },
+          {
+            "cod": "864",
+            "descricao": "",
+            "nome": "Designer",
+            "sigla": ""
+          },
+          {
+            "cod": "865",
+            "descricao": "",
+            "nome": "Despachante",
+            "sigla": ""
+          },
+          {
+            "cod": "866",
+            "descricao": "",
+            "nome": "Dramaturgo",
+            "sigla": ""
+          },
+          {
+            "cod": "867",
+            "descricao": "",
+            "nome": "Empregado doméstico",
+            "sigla": ""
+          },
+          {
+            "cod": "868",
+            "descricao": "",
+            "nome": "Escrivão",
+            "sigla": ""
+          },
+          {
+            "cod": "869",
+            "descricao": "",
+            "nome": "Estilista de moda",
+            "sigla": ""
+          },
+          {
+            "cod": "870",
+            "descricao": "",
+            "nome": "Estivador",
+            "sigla": ""
+          },
+          {
+            "cod": "871",
+            "descricao": "",
+            "nome": "Exportador",
+            "sigla": ""
+          },
+          {
+            "cod": "872",
+            "descricao": "",
+            "nome": "Físico",
+            "sigla": ""
+          },
+          {
+            "cod": "873",
+            "descricao": "",
+            "nome": "Geofísico",
+            "sigla": ""
+          },
+          {
+            "cod": "874",
+            "descricao": "",
+            "nome": "Impressor",
+            "sigla": ""
+          },
+          {
+            "cod": "875",
+            "descricao": "",
+            "nome": "Inspetor",
+            "sigla": ""
+          },
+          {
+            "cod": "876",
+            "descricao": "",
+            "nome": "Líder de comunidade",
+            "sigla": ""
+          },
+          {
+            "cod": "877",
+            "descricao": "",
+            "nome": "Piloto",
+            "sigla": ""
+          },
+          {
+            "cod": "878",
+            "descricao": "",
+            "nome": "Policial",
+            "sigla": ""
+          },
+          {
+            "cod": "879",
+            "descricao": "",
+            "nome": "Profissional autônomo",
+            "sigla": ""
+          },
+          {
+            "cod": "880",
+            "descricao": "",
+            "nome": "Profissional gráfico",
+            "sigla": ""
+          },
+          {
+            "cod": "881",
+            "descricao": "",
+            "nome": "Profissional técnico",
+            "sigla": ""
+          },
+          {
+            "cod": "882",
+            "descricao": "",
+            "nome": "Programador de sistema de informação",
+            "sigla": ""
+          },
+          {
+            "cod": "883",
+            "descricao": "",
+            "nome": "Projetista naval",
+            "sigla": ""
+          },
+          {
+            "cod": "884",
+            "descricao": "",
+            "nome": "Radiologista",
+            "sigla": ""
+          },
+          {
+            "cod": "885",
+            "descricao": "",
+            "nome": "Trabalhador ",
+            "sigla": ""
+          },
+          {
+            "cod": "886",
+            "descricao": "",
+            "nome": "Zootecnista",
+            "sigla": ""
+          },
+          {
+            "cod": "887",
+            "descricao": "",
+            "nome": "Profissão não declarada",
+            "sigla": ""
+          },
+          {
+            "cod": "888",
+            "descricao": "",
+            "nome": "Sanitarista",
+            "sigla": ""
+          }
+        ],
+        "siglaSituacao": [
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Afastado",
+            "sigla": "A"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Convocado",
+            "sigla": "C"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Exercício",
+            "sigla": "E"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Fim de Mandato",
+            "sigla": "F"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Licença",
+            "sigla": "L"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Suplência",
+            "sigla": "S"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Suspenso",
+            "sigla": "U"
+          },
+          {
+            "cod": "",
+            "descricao": "",
+            "nome": "Vacância",
+            "sigla": "V"
+          }
+        ],
+        "siglaUF": [
+          {
+            "cod": "6",
+            "descricao": "",
+            "nome": "ACRE",
+            "sigla": "AC"
+          },
+          {
+            "cod": "14",
+            "descricao": "",
+            "nome": "ALAGOAS",
+            "sigla": "AL"
+          },
+          {
+            "cod": "4",
+            "descricao": "",
+            "nome": "AMAZONAS",
+            "sigla": "AM"
+          },
+          {
+            "cod": "2",
+            "descricao": "",
+            "nome": "AMAPÁ",
+            "sigla": "AP"
+          },
+          {
+            "cod": "16",
+            "descricao": "",
+            "nome": "BAHIA",
+            "sigla": "BA"
+          },
+          {
+            "cod": "9",
+            "descricao": "",
+            "nome": "CEARÁ",
+            "sigla": "CE"
+          },
+          {
+            "cod": "22",
+            "descricao": "",
+            "nome": "DISTRITO FEDERAL",
+            "sigla": "DF"
+          },
+          {
+            "cod": "18",
+            "descricao": "",
+            "nome": "ESPÍRITO SANTO",
+            "sigla": "ES"
+          },
+          {
+            "cod": "23",
+            "descricao": "",
+            "nome": "GOIÁS",
+            "sigla": "GO"
+          },
+          {
+            "cod": "8",
+            "descricao": "",
+            "nome": "MARANHÃO",
+            "sigla": "MA"
+          },
+          {
+            "cod": "17",
+            "descricao": "",
+            "nome": "MINAS GERAIS",
+            "sigla": "MG"
+          },
+          {
+            "cod": "24",
+            "descricao": "",
+            "nome": "MATO GROSSO DO SUL",
+            "sigla": "MS"
+          },
+          {
+            "cod": "21",
+            "descricao": "",
+            "nome": "MATO GROSSO",
+            "sigla": "MT"
+          },
+          {
+            "cod": "3",
+            "descricao": "",
+            "nome": "PARÁ",
+            "sigla": "PA"
+          },
+          {
+            "cod": "12",
+            "descricao": "",
+            "nome": "PARAÍBA",
+            "sigla": "PB"
+          },
+          {
+            "cod": "13",
+            "descricao": "",
+            "nome": "PERNAMBUCO",
+            "sigla": "PE"
+          },
+          {
+            "cod": "10",
+            "descricao": "",
+            "nome": "PIAUÍ",
+            "sigla": "PI"
+          },
+          {
+            "cod": "25",
+            "descricao": "",
+            "nome": "PARANÁ",
+            "sigla": "PR"
+          },
+          {
+            "cod": "19",
+            "descricao": "",
+            "nome": "RIO DE JANEIRO",
+            "sigla": "RJ"
+          },
+          {
+            "cod": "11",
+            "descricao": "",
+            "nome": "RIO GRANDE DO NORTE",
+            "sigla": "RN"
+          },
+          {
+            "cod": "5",
+            "descricao": "",
+            "nome": "RONDÔNIA",
+            "sigla": "RO"
+          },
+          {
+            "cod": "1",
+            "descricao": "",
+            "nome": "RORAIMA",
+            "sigla": "RR"
+          },
+          {
+            "cod": "27",
+            "descricao": "",
+            "nome": "RIO GRANDE DO SUL",
+            "sigla": "RS"
+          },
+          {
+            "cod": "26",
+            "descricao": "",
+            "nome": "SANTA CATARINA",
+            "sigla": "SC"
+          },
+          {
+            "cod": "15",
+            "descricao": "",
+            "nome": "SERGIPE",
+            "sigla": "SE"
+          },
+          {
+            "cod": "20",
+            "descricao": "",
+            "nome": "SÃO PAULO",
+            "sigla": "SP"
+          },
+          {
+            "cod": "7",
+            "descricao": "",
+            "nome": "TOCANTINS",
+            "sigla": "TO"
+          }
+        ]
+      },
+      "links": [
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/referencias/deputados",
+          "rel": "self"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/referencias/deputados/siglaUF",
+          "rel": "item"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/referencias/deputados/siglaSituacao",
+          "rel": "item"
+        },
+        {
+          "href": "https://dadosabertos.camara.leg.br/api/v2/referencias/deputados/codTipoProfissao",
+          "rel": "item"
+        }
+      ]
+    },
+    "status": 200
+  }
+}
