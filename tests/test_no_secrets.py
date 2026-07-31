@@ -30,9 +30,7 @@ ALLOWED = {"tests/test_no_secrets.py"}
 
 
 def tracked_files() -> list[str]:
-    out = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout
+    out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return [line for line in out.splitlines() if line]
 
 
@@ -60,9 +58,7 @@ def test_the_scanner_actually_fires() -> None:
 
 
 def test_dotenv_is_ignored() -> None:
-    result = subprocess.run(
-        ["git", "check-ignore", "-q", ".env"], cwd=ROOT, capture_output=True, text=True
-    )
+    result = subprocess.run(["git", "check-ignore", "-q", ".env"], cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, ".env must be gitignored before any key is put in it"
 
 
