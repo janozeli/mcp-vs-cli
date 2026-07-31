@@ -22,8 +22,10 @@ export const TRIAD: readonly Arm[] = [
     why: "a shell and nothing else: the price of having no documentation at all",
   },
   {
+    // `mcp` is the adapter's own tool. With an allowlist in force, an extension's tools have to be
+    // named explicitly or they are filtered out — which would have made this arm a silent baseline.
     key: "mcp",
-    tools: ["bash"],
+    tools: ["bash", "mcp"],
     mcpServers: { camara: `bun run ${REPO}src/artefacts/mcp-server.ts` },
     pathAdditions: [],
     why: "the user installed an MCP server; the client decides how it reaches the model",

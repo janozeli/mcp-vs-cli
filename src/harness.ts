@@ -20,7 +20,7 @@
  * context per turn.
  */
 
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -30,6 +30,16 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+
+/**
+ * pi keeps MCP out of its core by design, so the MCP arm installs it the way a user would: an
+ * extension package plus a standard `.mcp.json`. How the adapter then surfaces a server to the model
+ * is the adapter's decision, not ours — which is the whole point of measuring inside a stock harness.
+ */
+const MCP_ADAPTER = new URL("../node_modules/pi-mcp-adapter", import.meta.url).pathname.replace(
+  /^\/([A-Za-z]:)/,
+  "$1",
+);
 
 /** The objective, byte-identical in every arm. It states the goal and never the procedure. */
 export const OBJECTIVE =
@@ -121,12 +131,27 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const model = modelRuntime.getModel(provider, modelId);
   if (!model) throw new Error(`unknown model: ${provider}/${modelId}`);
 
+  // An arm that installs MCP servers gets the adapter and a config naming them; every other arm
+  // gets neither. Discovery stays off, so nothing else on the machine can join either way.
+  const installsMcp = Object.keys(arm.mcpServers).length > 0;
+  if (installsMcp) {
+    const mcpServers = Object.fromEntries(
+      Object.entries(arm.mcpServers).map(([name, command]) => {
+        const [bin, ...args] = command.split(" ");
+        return [name, { command: bin, args }];
+      }),
+    );
+    await writeFile(join(cwd, ".mcp.json"), `${JSON.stringify({ mcpServers }, null, 2)}
+`, "utf8");
+  }
+
   const settingsManager = settings();
   const loader = new DefaultResourceLoader({
     cwd,
     agentDir,
     settingsManager,
     systemPromptOverride: () => OBJECTIVE,
+    additionalExtensionPaths: installsMcp ? [MCP_ADAPTER] : [],
     noExtensions: true,
     noSkills: true,
     noPromptTemplates: true,

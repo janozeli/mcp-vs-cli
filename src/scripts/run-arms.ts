@@ -8,6 +8,9 @@
  *     bun run run-arms t1-civil-name --arms baseline,cli
  */
 
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import specDocument from "../../data/specs/camara-dados-abertos-v2.json";
 import { Api } from "../api.ts";
@@ -40,9 +43,12 @@ console.log(`solved live: ${expected}  ·  model ${MODEL}\n`);
 const rows: string[][] = [];
 for (const arm of arms) {
   process.stdout.write(`  running ${arm.key} …`);
-  const result = await run({ arm, question: task.question, apiKey, cwd: process.cwd() });
+  // Each arm gets its own working directory: the MCP arm writes a .mcp.json there, and a shared cwd
+  // would leak that installation into the arm that runs next.
+  const cwd = await mkdtemp(join(tmpdir(), `arm-${arm.key}-`));
+  const result = await run({ arm, question: task.question, apiKey, cwd });
   const ok = check(task, result.answer, expected);
-  console.log(ok ? " ok" : " wrong");
+  console.log(`${ok ? " ok" : " wrong"}  [${result.toolCalls.join(", ")}]`);
   rows.push([
     arm.key,
     ok ? "yes" : "no",
