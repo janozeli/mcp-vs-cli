@@ -151,7 +151,8 @@ def test_deferred_starts_with_one_tool_and_grows(registry: spec.Registry, casset
         "t1-civil-name",
         [
             _tool_call("tool_search", '{"query": "deputados"}'),
-            _tool_call("camara__get_deputados", '{"id": 204554}', call_id="call-2"),
+            _tool_call("tool_search", '{"query": "select:camara__get_deputados"}', call_id="call-2"),
+            _tool_call("camara__get_deputados", '{"id": 204554}', call_id="call-3"),
             _text("JOSE ABILIO SILVA DE SANTANA"),
         ],
         registry,
@@ -160,10 +161,30 @@ def test_deferred_starts_with_one_tool_and_grows(registry: spec.Registry, casset
         disclosure="lazy",
     )
     assert trial.success
-    first, second = client.requests[0]["tools"], client.requests[1]["tools"]
+    first, after_browse, after_select = (client.requests[i]["tools"] for i in (0, 1, 2))
     assert [t["function"]["name"] for t in first] == ["tool_search"]
-    assert len(second) > 1, "a search must actually load the schemas it found"
-    assert any(t["function"]["name"] == "camara__get_deputados" for t in second)
+    # Browsing must not load anything: that is what makes it cheaper than reading every schema.
+    assert [t["function"]["name"] for t in after_browse] == ["tool_search"]
+    assert any(t["function"]["name"] == "camara__get_deputados" for t in after_select)
+
+
+def test_browsing_returns_names_and_selecting_returns_schemas(registry: spec.Registry) -> None:
+    loaded: set[str] = set()
+    browsed, names = agent._search(registry, "despesas", loaded)
+    assert not names and not loaded, "browsing loads nothing"
+    assert "camara__list_deputados_despesas" in browsed
+    assert '"parameters"' not in browsed, "browsing must not pay for full schemas"
+
+    selected, names = agent._search(registry, "select:camara__list_deputados_despesas", loaded)
+    assert names == ["list_deputados_despesas"]
+    assert loaded == {"list_deputados_despesas"}
+    assert '"parameters"' in selected
+
+
+def test_selecting_an_unknown_tool_says_so(registry: spec.Registry) -> None:
+    text, names = agent._search(registry, "select:camara__list_senadores", set())
+    assert not names
+    assert "No such tools" in text
 
 
 def test_the_cli_format_never_sends_more_than_one_tool(registry: spec.Registry, cassette: Cassette) -> None:

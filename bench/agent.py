@@ -38,9 +38,10 @@ PREFIX = "camara__"
 RETRYABLE = ("resourceexhausted", "rate limit", "rate-limit", "overloaded", "timeout", "try again")
 BACKOFF_SECONDS = (2, 5, 12, 30, 60)
 
-# How many tool definitions a deferred search loads at once. A client that returned everything on
-# every search would not be deferring anything.
-SEARCH_LIMIT = 5
+# How many results a deferred search returns. A client that returned everything on every search
+# would not be deferring anything.
+BROWSE_LIMIT = 12
+SELECT_LIMIT = 5
 
 
 @dataclass(slots=True)
@@ -64,22 +65,50 @@ class Trial:
     trace: str = ""
 
 
+def _strip_prefix(name: str) -> str:
+    return name[len(PREFIX) :] if name.startswith(PREFIX) else name
+
+
 def _search(registry: Registry, query: str, loaded: set[str]) -> tuple[str, list[str]]:
-    """Resolve a `tool_search` query to full tool definitions, as a deferring client would."""
+    """Resolve a `tool_search` query, as a deferring client would.
+
+    Browsing returns names; only `select:` returns schemas. Charging a full schema for every keyword
+    guess would price the search's design rather than the format, and this format is being compared
+    against a `--help` that costs one flat listing to browse.
+    """
+    if query.strip().lower().startswith("select:"):
+        wanted = [_strip_prefix(n.strip()) for n in query.split(":", 1)[1].split(",") if n.strip()]
+        names, unknown = [], []
+        for name in wanted[:SELECT_LIMIT]:
+            try:
+                registry.by_name(name)
+            except KeyError:
+                unknown.append(name)
+                continue
+            names.append(name)
+        if not names:
+            return f"No such tools: {', '.join(unknown)}. Search by keyword first.", []
+        loaded.update(names)
+        definitions = [mcp_arm.tool_definition(registry.by_name(n), prefix=PREFIX) for n in names]
+        note = f"\nNot found: {', '.join(unknown)}." if unknown else ""
+        return json.dumps(definitions, ensure_ascii=False) + note, names
+
     terms = [t.strip().lower() for t in query.replace(",", " ").split() if t.strip()]
     scored: list[tuple[int, str]] = []
     for op in registry:
         haystack = f"{op.name} {op.summary} {op.group}".lower()
-        score = sum(1 for term in terms if term.lstrip(PREFIX) in haystack)
+        score = sum(1 for term in terms if _strip_prefix(term) in haystack)
         if score:
             scored.append((score, op.name))
     scored.sort(key=lambda pair: (-pair[0], pair[1]))
-    names = [name for _, name in scored[:SEARCH_LIMIT]]
-    if not names:
+    matches = [name for _, name in scored[:BROWSE_LIMIT]]
+    if not matches:
         return f"No tools matched {query!r}. Try broader keywords.", []
-    loaded.update(names)
-    definitions = [mcp_arm.tool_definition(registry.by_name(n), prefix=PREFIX) for n in names]
-    return json.dumps(definitions, ensure_ascii=False), names
+
+    lines = [f"{PREFIX}{name} — {registry.by_name(name).summary}".rstrip() for name in matches]
+    lines.append("")
+    lines.append(f"Load with `select:{PREFIX}<name>` (comma-separated for several).")
+    return "\n".join(lines), []
 
 
 def _tools_for_turn(

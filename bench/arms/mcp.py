@@ -67,21 +67,32 @@ def tool_definitions(registry: Registry, *, prefix: str = "") -> list[dict[str, 
 
 
 def search_tool_definition() -> dict[str, Any]:
-    """The meta-tool a deferred client exposes so the model can pull schemas in when it needs them."""
+    """The meta-tool a deferred client exposes so the model can pull schemas in when it needs them.
+
+    Two forms, because that is what real deferred loading does and because collapsing them into one
+    is unfair to this format: a keyword query browses and returns names, while an explicit `select:`
+    loads schemas. A search that always returned full definitions would charge the model a schema
+    for every guess it made, which measures the search's design rather than the format's cost.
+    """
     return {
         "type": "function",
         "function": {
             "name": "tool_search",
             "description": (
-                "Load the full definitions of tools whose schemas are not yet available. "
-                "Returns the schema of each matching tool, after which it can be called."
+                "Find and load tools whose definitions are not yet available. "
+                "Two forms: a keyword query (e.g. 'deputy expenses') returns matching tool names "
+                "with a one-line summary each; `select:name1,name2` loads those tools' full "
+                "definitions, after which they can be called."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Keywords, or a comma-separated list of exact tool names.",
+                        "description": (
+                            "Keywords to browse by, or `select:` followed by a comma-separated "
+                            "list of exact tool names to load."
+                        ),
                     }
                 },
                 "required": ["query"],
