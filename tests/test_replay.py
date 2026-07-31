@@ -100,6 +100,33 @@ def test_two_arms_calling_differently_still_share_one_recording(tmp_path: Path) 
     assert len(recorder) == 1
 
 
+def test_fingerprint_identifies_the_corpus_a_run_measured(tmp_path: Path) -> None:
+    recorder = Cassette(tmp_path, base_url=BASE, mode="record", client=mock_client())
+    recorder.get("/deputados", {"siglaUf": "SP"})
+    first = recorder.fingerprint()
+
+    # Replaying the same corpus must not move it: this is what a measurement run asserts.
+    player = Cassette(tmp_path, base_url=BASE, mode="replay", client=exploding_client())
+    player.get("/deputados", {"siglaUf": "SP"})
+    assert player.fingerprint() == first
+
+    # Extending it must.
+    recorder.get("/proposicoes", {"ano": 2024})
+    assert recorder.fingerprint() != first
+
+
+def test_fingerprint_notices_a_re_recorded_body(tmp_path: Path) -> None:
+    """Same requests, different data, is a different corpus — and hashing keys alone would miss it."""
+    recorder = Cassette(tmp_path, base_url=BASE, mode="record", client=mock_client())
+    recorder.get("/deputados", {"siglaUf": "SP"})
+    before = recorder.fingerprint()
+
+    stored = tmp_path / f"{recorder.keys()[0]}.json"
+    stored.write_text(stored.read_text(encoding="utf-8").replace("Ada", "Grace"), encoding="utf-8")
+    assert recorder.keys() == [recorder.keys()[0]]
+    assert recorder.fingerprint() != before
+
+
 def test_stored_document_is_self_describing(tmp_path: Path) -> None:
     import json
 

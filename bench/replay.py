@@ -82,6 +82,19 @@ class Cassette:
     def keys(self) -> list[str]:
         return sorted(p.stem for p in self.directory.glob("*.json"))
 
+    def fingerprint(self) -> str:
+        """A stable identifier for the corpus's contents.
+
+        Hashes the recordings themselves, not just their keys: a corpus that was re-recorded holds
+        the same requests against different data, and a comparison that spans that change is between
+        two datasets. A run stores this so it can prove which corpus it measured.
+        """
+        digest = hashlib.sha256()
+        for key in self.keys():
+            digest.update(key.encode("ascii"))
+            digest.update(self._path(key).read_bytes())
+        return digest.hexdigest()[:16]
+
     def __len__(self) -> int:
         return len(self.keys())
 
