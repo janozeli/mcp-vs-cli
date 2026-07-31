@@ -1,0 +1,13 @@
+{
+  "name": "camara-dados-abertos-v2",
+  "title": "Dados Abertos da Camara dos Deputados (Brazil), API v2",
+  "source_url": "https://dadosabertos.camara.leg.br/api/v2/api-docs",
+  "docs_url": "https://dadosabertos.camara.leg.br/swagger/api.html",
+  "base_url": "https://dadosabertos.camara.leg.br/api/v2",
+  "fetched_at": "2026-07-30",
+  "openapi": "3.0.1",
+  "authentication": "none",
+  "sha256": "46ede529b0adcb2b7e2e9968b3ac20ef394e988700f18c47dbb1d0df45cf2c2b",
+  "bytes": 194615,
+  "why": "78 operations across 11 tag groups, no auth, rich query parameters, and real relational data. Large enough to scale N and unfamiliar enough at the record level that a model cannot answer from memory."
+}
