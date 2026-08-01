@@ -24,8 +24,10 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  createAgentSession,
-  DefaultResourceLoader,
+  type AgentSessionRuntime,
+  createAgentSessionFromServices,
+  createAgentSessionRuntime,
+  createAgentSessionServices,
   ModelRuntime,
   SessionManager,
   SettingsManager,
@@ -76,6 +78,12 @@ export interface RunResult {
   readonly answer: string;
   readonly turns: readonly Turn[];
   readonly toolCalls: readonly string[];
+  /** Every session entry, verbatim — the trace invariant 4 rests on. */
+  readonly entries: readonly unknown[];
+  /** What the model could actually call. An arm that installed a tool it never received is a bug. */
+  readonly activeTools: readonly string[];
+  /** Anything an extension reported. A dead installation must be loud, never a quiet number. */
+  readonly extensionErrors: readonly string[];
   readonly contextTokens: number | null;
   readonly contextWindow: number | null;
   readonly peakContext: number;
@@ -96,6 +104,13 @@ function settings() {
   });
 }
 
+/** A session action that has no meaning inside a single-prompt trial. */
+function notDuringATrial(name: string): never | (() => never) {
+  return () => {
+    throw new Error(`${name} is not available during a trial: a trial is one prompt in one session`);
+  };
+}
+
 export interface RunOptions {
   readonly arm: Arm;
   readonly question: string;
@@ -103,8 +118,12 @@ export interface RunOptions {
   readonly cwd: string;
   readonly model?: string;
   readonly provider?: string;
-  readonly maxTurns?: number;
+  /** Wall-clock ceiling for one trial. A run that stalls has to become a result, not a hang. */
+  readonly timeoutMs?: number;
 }
+
+/** How long a single trial may run before it is abandoned and recorded as such. */
+export const TRIAL_TIMEOUT_MS = 180_000;
 
 /**
  * Run one question through one arm.
@@ -141,15 +160,16 @@ export async function run(options: RunOptions): Promise<RunResult> {
         return [name, { command: bin, args }];
       }),
     );
-    await writeFile(join(cwd, ".mcp.json"), `${JSON.stringify({ mcpServers }, null, 2)}
-`, "utf8");
+    await writeFile(
+      join(cwd, ".mcp.json"),
+      `${JSON.stringify({ mcpServers }, null, 2)}
+`,
+      "utf8",
+    );
   }
 
   const settingsManager = settings();
-  const loader = new DefaultResourceLoader({
-    cwd,
-    agentDir,
-    settingsManager,
+  const resourceLoaderOptions = {
     systemPromptOverride: () => OBJECTIVE,
     additionalExtensionPaths: installsMcp ? [MCP_ADAPTER] : [],
     noExtensions: true,
@@ -157,8 +177,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
-  });
-  await loader.reload();
+  };
 
   const previousPath = process.env.PATH ?? "";
   if (arm.pathAdditions.length > 0) {
@@ -167,18 +186,62 @@ export async function run(options: RunOptions): Promise<RunResult> {
 
   const turns: Turn[] = [];
   const toolCalls: string[] = [];
+  const extensionErrors: string[] = [];
   let answer = "";
 
+  // Held rather than passed inline: it owns the transcript, and reading it back afterwards is the
+  // only way to see what each tool call actually returned. Without that, a run that worked and a run
+  // that gave up and improvised produce the same numbers.
+  const sessionManager = SessionManager.inMemory();
+
+  // The runtime host rather than a bare session: it is what owns teardown. `session.dispose()` stops
+  // the agent but never emits `session_shutdown`, so an arm that spawned an MCP server left the child
+  // alive and the process hanging — four minutes per trial, with the answer already printed.
+  let runtime: AgentSessionRuntime | undefined;
+
   try {
-    const { session } = await createAgentSession({
-      cwd,
-      agentDir,
-      model,
-      modelRuntime,
-      tools: [...arm.tools],
-      resourceLoader: loader,
-      sessionManager: SessionManager.inMemory(),
-      settingsManager,
+    runtime = await createAgentSessionRuntime(
+      async (target) => {
+        const services = await createAgentSessionServices({
+          cwd: target.cwd,
+          agentDir: target.agentDir,
+          settingsManager,
+          modelRuntime,
+          resourceLoaderOptions,
+        });
+        const created = await createAgentSessionFromServices({
+          services,
+          sessionManager: target.sessionManager,
+          ...(target.sessionStartEvent ? { sessionStartEvent: target.sessionStartEvent } : {}),
+          model,
+          tools: [...arm.tools],
+        });
+        return { ...created, services, diagnostics: services.diagnostics };
+      },
+      { cwd, agentDir, sessionManager },
+    );
+    const session = runtime.session;
+
+    // Loading an extension is not the same as activating it. `bindExtensions` is what emits
+    // `session_start`, and every real pi mode calls it; the MCP adapter starts its servers on that
+    // event. Without this the arm's `mcp` tool answers "MCP not initialized" and the model, finding
+    // the installation dead, debugs it and falls back to curl — which is exactly what it did.
+    await session.bindExtensions({
+      mode: "print",
+      // A trial is one prompt in one session. Forking, switching and reloading exist so an
+      // interactive user can steer a run; here they would silently change what is being measured, so
+      // they refuse rather than pretend.
+      commandContextActions: {
+        waitForIdle: () => session.waitForIdle(),
+        newSession: notDuringATrial("newSession"),
+        fork: notDuringATrial("fork"),
+        navigateTree: notDuringATrial("navigateTree"),
+        switchSession: notDuringATrial("switchSession"),
+        reload: notDuringATrial("reload"),
+      },
+      onError: (err: { extensionPath: string; error: unknown }) => {
+        extensionErrors.push(`${err.extensionPath}: ${err.error}`);
+      },
     });
 
     session.subscribe((event: { type: string; [key: string]: unknown }) => {
@@ -205,7 +268,19 @@ export async function run(options: RunOptions): Promise<RunResult> {
       }
     });
 
-    await session.prompt(question);
+    // A trial that never returns is a result too. Abandoning it keeps the tokens it did spend and
+    // says so, rather than stopping the batch on a wall clock and leaving nothing behind.
+    const ceiling = options.timeoutMs ?? TRIAL_TIMEOUT_MS;
+    let timedOut = false;
+    const alarm = setTimeout(() => {
+      timedOut = true;
+      void session.abort();
+    }, ceiling);
+    try {
+      await session.prompt(question);
+    } finally {
+      clearTimeout(alarm);
+    }
 
     // pi's own estimate, rather than our derivation from per-turn usage.
     const usage = (
@@ -217,6 +292,10 @@ export async function run(options: RunOptions): Promise<RunResult> {
       answer: answer.trim(),
       turns,
       toolCalls,
+      entries: sessionManager.getEntries(),
+      activeTools: session.getActiveToolNames(),
+      extensionErrors,
+      ...(timedOut ? { aborted: `no answer within ${ceiling} ms` } : {}),
       contextTokens: usage?.tokens ?? null,
       contextWindow: usage?.contextWindow ?? null,
       peakContext: Math.max(0, ...turns.map((t) => t.context)),
@@ -226,5 +305,9 @@ export async function run(options: RunOptions): Promise<RunResult> {
     };
   } finally {
     process.env.PATH = previousPath;
+    // Emits `session_shutdown`, which is what stops the MCP servers the arm installed. Runs are
+    // sequential and repeated, so a trial that does not release what it started would accumulate one
+    // stray server per repeat.
+    await runtime?.dispose();
   }
 }

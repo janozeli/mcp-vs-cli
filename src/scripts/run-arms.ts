@@ -8,7 +8,7 @@
  *     bun run run-arms t1-civil-name --arms baseline,cli
  */
 
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -40,6 +40,10 @@ console.log(`${task.id} — ${task.question}`);
 const expected = await task.solve(new Api(registry.baseUrl, { pauseMs: 200 }));
 console.log(`solved live: ${expected}  ·  model ${MODEL}\n`);
 
+const traceDir = join("runs", task.id);
+await mkdir(traceDir, { recursive: true });
+const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
 const rows: string[][] = [];
 for (const arm of arms) {
   process.stdout.write(`  running ${arm.key} …`);
@@ -48,10 +52,28 @@ for (const arm of arms) {
   const cwd = await mkdtemp(join(tmpdir(), `arm-${arm.key}-`));
   const result = await run({ arm, question: task.question, apiKey, cwd });
   const ok = check(task, result.answer, expected);
-  console.log(`${ok ? " ok" : " wrong"}  [${result.toolCalls.join(", ")}]`);
+
+  // Invariant 4: the run has to be recomputable by someone who does not trust us, and a trace
+  // without tool results cannot distinguish an arm that worked from one that gave up.
+  const trace = [
+    { kind: "meta", task: task.id, arm: arm.key, model: MODEL, expected, answer: result.answer, ok },
+    { kind: "tools", active: result.activeTools, called: result.toolCalls },
+    ...result.entries.map((entry) => ({ kind: "entry", entry })),
+    ...result.turns.map((turn) => ({ kind: "usage", ...turn })),
+  ];
+  await writeFile(
+    join(traceDir, `${stamp}-${arm.key}.jsonl`),
+    `${trace.map((row) => JSON.stringify(row)).join("\n")}\n`,
+    "utf8",
+  );
+
+  console.log(`${result.aborted ? " ABORTED" : ok ? " ok" : " wrong"}  [${result.toolCalls.join(", ")}]`);
+  console.log(`      offered: ${result.activeTools.join(", ")}`);
+  if (result.aborted) console.log(`      ${result.aborted}`);
+  for (const failure of result.extensionErrors) console.log(`      extension: ${failure}`);
   rows.push([
     arm.key,
-    ok ? "yes" : "no",
+    result.aborted ? "—" : ok ? "yes" : "no",
     String(result.turns.length),
     String(result.toolCalls.length),
     (result.contextTokens ?? result.peakContext).toLocaleString("en-US"),
