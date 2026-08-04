@@ -18,23 +18,30 @@ export const TRIAD: readonly Arm[] = [
     key: "baseline",
     tools: ["bash"],
     mcpServers: {},
+    installs: [],
     pathAdditions: [],
     why: "a shell and nothing else: the price of having no documentation at all",
   },
   {
     // `mcp` is the adapter's own tool. With an allowlist in force, an extension's tools have to be
     // named explicitly or they are filtered out — which would have made this arm a silent baseline.
+    // The server itself is spawned by the client on the host, as in any real installation — which
+    // places it outside the jail; declared in .claude/reference/arm-symmetry.md.
     key: "mcp",
     tools: ["bash", "mcp"],
     mcpServers: { camara: `bun run ${REPO}src/artefacts/mcp-server.ts` },
+    installs: [],
     pathAdditions: [],
     why: "the user installed an MCP server; the client decides how it reaches the model",
   },
   {
+    // The binary is copied into the trial's cwd: it is the installation, and it has to exist
+    // inside the jail, where the repository does not.
     key: "cli",
     tools: ["bash"],
     mcpServers: {},
-    pathAdditions: [`${REPO}bin`],
+    installs: [{ from: `${REPO}bin/api`, to: "bin/api" }],
+    pathAdditions: ["bin"],
     why: "the user installed a CLI; the shell it already had is how it gets called",
   },
 ];

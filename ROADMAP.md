@@ -45,6 +45,12 @@ A step-by-step walkthrough of the ladder, showing what each cheap optimisation r
 
 ## Instrumentation
 
+- **Egress allowlist, if the audit ever shows a reason.** Trials run jailed (ai-jail over
+  bubblewrap) with the network open, because ground truth is solved live; what the model reached is
+  audited from the trace instead of blocked. If audited runs ever show real probing beyond the
+  subject API, the upgrade path is a host-side filtering proxy with the jail's network unshared —
+  the pattern Anthropic's sandbox-runtime uses. Not built until the audit says so.
+
 - **Accounting comes from pi**, not from a derivation of ours: per-turn usage with reasoning and
   cache separated, plus `getContextUsage()`, the estimate pi itself uses for compaction.
 - **Probe count per task, from the baseline.** How much the `baseline` arm has to probe is a validity

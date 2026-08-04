@@ -18,11 +18,17 @@
  * overridden, so no globally installed extension, skill or MCP server can join the run. An earlier
  * attempt that inherited the operator's own configuration carried about 29,000 extra tokens of
  * context per turn.
+ *
+ * **The trial is jailed, identically for every arm.** Every `bash` call runs through the same
+ * ai-jail wrapper (see `src/jail.ts`), so the repository, `$HOME` and the operator's machine do not
+ * exist inside a trial; a run records whether it was jailed, because jailed and unjailed numbers
+ * must never mix silently. The harness aborts if a credential-shaped environment variable would be
+ * inherited, and the hosts the model referenced are read back from the trace.
  */
 
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import {
   type AgentSessionRuntime,
   createAgentSessionFromServices,
@@ -32,6 +38,7 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { jailWrapper, leakyEnvNames, referencedHosts } from "./jail.ts";
 
 /**
  * pi keeps MCP out of its core by design, so the MCP arm installs it the way a user would: an
@@ -55,9 +62,15 @@ export interface Arm {
   readonly key: string;
   /** Built-in pi tools the arm may use. Every arm gets `bash`; that is the common denominator. */
   readonly tools: readonly string[];
-  /** MCP servers to install, by name and command. */
+  /** MCP servers to install, by name and command. The client spawns them on the host. */
   readonly mcpServers: Readonly<Record<string, string>>;
-  /** Directories prepended to `PATH`, so an installed binary is reachable. */
+  /**
+   * Files copied into the trial's working directory before the run — the installation itself.
+   * Copied rather than referenced because inside the jail the repository does not exist; a `PATH`
+   * entry pointing at it would be an address the model can read but never reach.
+   */
+  readonly installs: readonly { readonly from: string; readonly to: string }[];
+  /** Directories prepended to `PATH`, relative to the trial's working directory. */
   readonly pathAdditions: readonly string[];
   readonly why: string;
 }
@@ -91,11 +104,16 @@ export interface RunResult {
   readonly totalReasoning: number;
   readonly cost: number;
   readonly aborted?: string;
+  /** Whether every `bash` call ran inside the jail. Jailed and unjailed numbers must never mix. */
+  readonly jailed: boolean;
+  /** Hosts named in tool-call arguments — the audit half of the open-network boundary. */
+  readonly hosts: readonly string[];
 }
 
 /** Settings that make a run measurable rather than merely runnable. */
-function settings() {
+function settings(shellPath?: string) {
   return SettingsManager.inMemory({
+    ...(shellPath ? { shellPath } : {}),
     compaction: { enabled: false },
     retry: { enabled: false },
     quietStartup: true,
@@ -136,10 +154,39 @@ export async function run(options: RunOptions): Promise<RunResult> {
   const provider = options.provider ?? PROVIDER;
   const modelId = options.model ?? MODEL;
 
+  // Every child of this process — the model's bash, the MCP server the adapter spawns — inherits
+  // this environment. A credential here would cross into the trial, so it is an error someone
+  // sees, never a variable a trial quietly carried. The caller keeps its key in a local.
+  const leaks = leakyEnvNames(process.env);
+  if (leaks.length > 0) {
+    throw new Error(
+      `refusing to run: the trial would inherit credential-shaped environment variables: ${leaks.join(", ")}`,
+    );
+  }
+
   // An agent directory this run owns. Nothing on the machine is read: no globally installed
   // extension, skill, prompt template or MCP server can join, and the repository's own AGENTS.md or
   // CLAUDE.md cannot be injected into a cell.
   const agentDir = await mkdtemp(join(tmpdir(), "mcp-vs-cli-"));
+
+  // The jail, when the machine can provide one. The wrapper lives in the agent directory — the
+  // harness's territory, not the trial's — and is identical for every arm: confinement is part of
+  // the shared harness, never of an arm. Without ai-jail the run still happens, marked unjailed.
+  const aiJail = Bun.which("ai-jail");
+  const shellPath = aiJail ? join(agentDir, "jail.sh") : undefined;
+  if (aiJail && shellPath) {
+    await writeFile(shellPath, jailWrapper(aiJail), { mode: 0o755 });
+  }
+  const jailed = shellPath !== undefined;
+
+  // The installation is copied into the trial's working directory: it has to exist inside the
+  // jail, and the copy carries no path back to the repository.
+  for (const install of arm.installs) {
+    const destination = join(cwd, install.to);
+    await mkdir(dirname(destination), { recursive: true });
+    await copyFile(install.from, destination);
+    await chmod(destination, (await stat(install.from)).mode);
+  }
 
   const modelRuntime = await ModelRuntime.create({
     authPath: join(agentDir, "auth.json"),
@@ -168,7 +215,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     );
   }
 
-  const settingsManager = settings();
+  const settingsManager = settings(shellPath);
   const resourceLoaderOptions = {
     systemPromptOverride: () => OBJECTIVE,
     additionalExtensionPaths: installsMcp ? [MCP_ADAPTER] : [],
@@ -181,7 +228,8 @@ export async function run(options: RunOptions): Promise<RunResult> {
 
   const previousPath = process.env.PATH ?? "";
   if (arm.pathAdditions.length > 0) {
-    process.env.PATH = [...arm.pathAdditions, previousPath].join(";");
+    const additions = arm.pathAdditions.map((path) => join(cwd, path));
+    process.env.PATH = [...additions, previousPath].join(delimiter);
   }
 
   const turns: Turn[] = [];
@@ -287,14 +335,17 @@ export async function run(options: RunOptions): Promise<RunResult> {
       session as { getContextUsage?(): { tokens: number | null; contextWindow: number } }
     ).getContextUsage?.();
 
+    const entries = sessionManager.getEntries();
     return {
       arm: arm.key,
       answer: answer.trim(),
       turns,
       toolCalls,
-      entries: sessionManager.getEntries(),
+      entries,
       activeTools: session.getActiveToolNames(),
       extensionErrors,
+      jailed,
+      hosts: referencedHosts(entries),
       ...(timedOut ? { aborted: `no answer within ${ceiling} ms` } : {}),
       contextTokens: usage?.tokens ?? null,
       contextWindow: usage?.contextWindow ?? null,

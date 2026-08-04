@@ -45,6 +45,21 @@ This is not fixable inside the experiment, and it should not be quietly compensa
 handicapping the CLI. It is declared in the README's caveats, and it is arguably a real advantage of
 the format rather than an artefact of the harness.
 
+## Declared asymmetries
+
+Standing differences that cannot be removed without changing what an arm *is*. Declared here and
+reported with results, per the constraint above.
+
+- **The MCP server process runs on the host, outside the jail.** Every arm's `bash` runs through
+  the identical ai-jail wrapper, set once in the harness. But the `mcp` arm's server is spawned by
+  the MCP client — pi's adapter — on the host, exactly as a real installation works: the boundary
+  difference is structural to MCP's client-spawns-server design, not an omission. All arms reach
+  the API over the same open network, so the affordance itself stays symmetric.
+- **`.mcp.json` sits in the mcp arm's working directory.** It is that arm's honest installation
+  artifact — a real MCP user has one in the project — but it is also a file the other arms' cwds
+  do not contain. Inside the jail the repository path it names does not exist, so listing it
+  discloses nothing reachable.
+
 ## Failure mode to watch for
 
 The tempting repair is to tune the disadvantaged arm until the numbers look fair. That is how bias

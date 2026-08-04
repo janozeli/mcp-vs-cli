@@ -34,6 +34,10 @@ if (!apiKey) {
   console.error("https://openrouter.ai/keys. Only the run-time half needs one; `bun run measure` does not.");
   process.exit(1);
 }
+// From here on this local is the key's only custodian. Children of this process — the model's
+// bash, the MCP server — inherit the environment, and the harness refuses to run if anything
+// credential-shaped is still in it.
+delete process.env.OPENROUTER_API_KEY;
 
 const registry = await normalise(specDocument);
 console.log(`${task.id} — ${task.question}`);
@@ -53,10 +57,25 @@ for (const arm of arms) {
   const result = await run({ arm, question: task.question, apiKey, cwd });
   const ok = check(task, result.answer, expected);
 
+  // The audit half of the open-network boundary: egress is free by invariant 3, so what the model
+  // reached beyond the API it was given is a reported fact, never a silent one.
+  const apiHost = new URL(registry.baseUrl).host;
+  const foreignHosts = result.hosts.filter((host) => host !== apiHost);
+
   // Invariant 4: the run has to be recomputable by someone who does not trust us, and a trace
   // without tool results cannot distinguish an arm that worked from one that gave up.
   const trace = [
-    { kind: "meta", task: task.id, arm: arm.key, model: MODEL, expected, answer: result.answer, ok },
+    {
+      kind: "meta",
+      task: task.id,
+      arm: arm.key,
+      model: MODEL,
+      expected,
+      answer: result.answer,
+      ok,
+      jailed: result.jailed,
+      hosts: result.hosts,
+    },
     { kind: "tools", active: result.activeTools, called: result.toolCalls },
     ...result.entries.map((entry) => ({ kind: "entry", entry })),
     ...result.turns.map((turn) => ({ kind: "usage", ...turn })),
@@ -71,6 +90,8 @@ for (const arm of arms) {
   console.log(`      offered: ${result.activeTools.join(", ")}`);
   if (result.aborted) console.log(`      ${result.aborted}`);
   for (const failure of result.extensionErrors) console.log(`      extension: ${failure}`);
+  if (!result.jailed) console.log("      UNJAILED: ai-jail not found; bash ran unconfined");
+  if (foreignHosts.length > 0) console.log(`      foreign hosts: ${foreignHosts.join(", ")}`);
   rows.push([
     arm.key,
     result.aborted ? "—" : ok ? "yes" : "no",
