@@ -43,15 +43,15 @@ the same records as TSV.
 
 A step-by-step walkthrough of the ladder, showing what each cheap optimisation returns.
 
-Related work to cite and differentiate: ["Making REST APIs Agent-Ready: From OpenAPI to Model
-Context Protocol Servers for Tool-Augmented LLMs" (arXiv:2507.16044)](https://arxiv.org/abs/2507.16044)
-generates MCP servers from OpenAPI documents and evaluates their correctness. Comparing generated
-servers against official vendor ones, it finds vendors curate aggressively — official servers expose
-a fraction of what the specification describes, in one case an order of magnitude less — because
-lower-value, preview and internal routes are deliberately left out. That gap is the distance our
-ladder prices: stage 0 is the generated dump, the curated tier is what vendors actually ship, and
-this project measures what each step between them costs and returns. Their question is whether
-generation produces *working* servers; ours is what the exposure *costs*.
+Related work to cite and differentiate: ["From REST to MCP: An Empirical Study of API Wrapping and
+Automated Server Generation for LLM Agents" (arXiv:2507.16044)](https://arxiv.org/abs/2507.16044).
+Figures below read from the paper itself (2026-08-11), not from summaries. Studying official MCP
+servers, it finds they act as "curated views over vendor APIs rather than complete proxies": median
+operation coverage is 19%, falling as the API grows, and 92% of servers implement tools as bare API
+wrappers — the market curates by omission, not by redesign. That places real servers *between* our
+stage 0 (the full generated dump) and the crafted ideal, at a point our ladder can price: trimming
+the tool set is a rung, and what it buys is a measured delta. Their question is how servers are
+constructed and whether generation produces working ones; ours is what the exposure *costs*.
 
 ## Instrumentation
 
