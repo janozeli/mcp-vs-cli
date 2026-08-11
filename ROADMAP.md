@@ -45,10 +45,11 @@ A step-by-step walkthrough of the ladder, showing what each cheap optimisation r
 
 Related work to cite and differentiate: ["Making REST APIs Agent-Ready: From OpenAPI to Model
 Context Protocol Servers for Tool-Augmented LLMs" (arXiv:2507.16044)](https://arxiv.org/abs/2507.16044)
-generates MCP servers from OpenAPI documents and evaluates their correctness; it also measured that
-official vendor MCP servers are curated subsets — in 14 of 17 APIs the auto-generated server exposes
-substantially more tools than the vendor's own (median +28 endpoints, +1,025 for GitHub). That gap
-is the distance our ladder prices: stage 0 is the generated dump, the curated tier is what vendors
+generates MCP servers from OpenAPI documents and evaluates their correctness. Comparing against 17
+official vendor MCP servers, its generated server never exposes fewer tools and in 14 of 17 cases
+exposes more (median gap +28 endpoints; GitHub: 1,038 generated against 73 in the vendor's server) —
+because vendors deliberately curate, omitting lower-value, preview and internal routes. That gap is
+the distance our ladder prices: stage 0 is the generated dump, the curated tier is what vendors
 actually ship, and this project measures what each step between them costs and returns. Their
 question is whether generation produces *working* servers; ours is what the exposure *costs*.
 
