@@ -1,5 +1,5 @@
 /**
- * Static context cost of each artefact, as a function of how many operations exist.
+ * Static context cost of each artifact, as a function of how many operations exist.
  *
  * This answers the first half of the question — what each way of exposing capabilities occupies in
  * the window — offline and without spending anything. What each one *recovers* for that cost is the
@@ -10,8 +10,8 @@
 
 import { getEncoding } from "js-tiktoken";
 import specDocument from "../data/specs/camara-dados-abertos-v2.json";
-import { fullHelp, rootHelp } from "./artefacts/cli.ts";
-import { toolDefinitions } from "./artefacts/mcp-server.ts";
+import { fullHelp, rootHelp } from "./artifacts/cli.ts";
+import { toolDefinitions } from "./artifacts/mcp-server.ts";
 import { normalise, type Registry, sample } from "./spec.ts";
 
 const ENCODING = "o200k_base";

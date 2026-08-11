@@ -1,5 +1,5 @@
 /**
- * The CLI arm's artefact: a real command-line tool, generated from the registry.
+ * The CLI arm's artifact: a real command-line tool, generated from the registry.
  *
  * Help text is commander's, not ours. That matters more than convenience. The `--help` output is a
  * *measured* quantity in this experiment, and while it was hand-rendered the README had to carry a

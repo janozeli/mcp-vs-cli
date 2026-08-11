@@ -29,7 +29,7 @@ export const TRIAD: readonly Arm[] = [
     // places it outside the jail; declared in .claude/reference/arm-symmetry.md.
     key: "mcp",
     tools: ["bash", "mcp"],
-    mcpServers: { camara: `bun run ${REPO}src/artefacts/mcp-server.ts` },
+    mcpServers: { camara: `bun run ${REPO}src/artifacts/mcp-server.ts` },
     installs: [],
     pathAdditions: [],
     why: "the user installed an MCP server; the client decides how it reaches the model",

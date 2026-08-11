@@ -1,5 +1,5 @@
 /**
- * Normalise an OpenAPI 3 document into the operation registry that every artefact is generated from.
+ * Normalise an OpenAPI 3 document into the operation registry that every artifact is generated from.
  *
  * This is the single source of truth of the experiment. The MCP server and the CLI are both emitted
  * from it, so a behavioural difference between arms is always a difference of *exposure* and never

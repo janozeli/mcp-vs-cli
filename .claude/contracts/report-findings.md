@@ -15,7 +15,7 @@ One transformation: a measurement becomes a claim, with its confidence attached.
 2. State the resolution before the result. The 22% single-trial spread bounds every claim in the
    repo, so it belongs above them, not in a footnote.
 3. Say what a claim depends on. A figure that assumes the harness is unbiased has to say so — three
-   findings here were artefacts of the harness, and each looked clean until someone read a trace.
+   findings here were artifacts of the harness, and each looked clean until someone read a trace.
 4. Withdraw in public. A claim that does not survive goes to the README's *Findings withdrawn* with
    why it fell, not into a silent edit. A benchmark that publishes only what held up is advertising.
 5. Separate window from money. Caching makes repeated schemas cheap to bill without making them

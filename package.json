@@ -10,7 +10,7 @@
     "measure": "bun run src/measure.ts",
     "ground-truth": "bun run src/scripts/check-ground-truth.ts",
     "run-arms": "bun run src/scripts/run-arms.ts",
-    "build:cli": "bun build src/artefacts/cli-main.ts --compile --outfile bin/api"
+    "build:cli": "bun build src/artifacts/cli-main.ts --compile --outfile bin/api"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.83.0",

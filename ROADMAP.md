@@ -26,7 +26,7 @@ Each must be an independent toggle, never a bundle, or a gain cannot be attribut
 
 | optimisation | `baseline` | `mcp` | `cli` | state |
 | --- | --- | --- | --- | --- |
-| filter results | jq over curl | projection parameter | `\| jq` | artefacts support it; not measured |
+| filter results | jq over curl | projection parameter | `\| jq` | artifacts support it; not measured |
 | compact output format | — | server returns TSV | `--format tsv` | not built |
 | truncate with a marker | — | cap arrays, say "N more" | `--limit` | not built |
 | errors that teach | (the API already does) | echo valid parameters | usage on error | commander does half |

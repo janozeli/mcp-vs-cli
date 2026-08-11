@@ -35,7 +35,7 @@ imported. It exists to produce numbers a stranger can recompute.
 
 | If the task is… | read | before touching |
 | --- | --- | --- |
-| adding or changing an arm | [`.claude/contracts/add-arm.md`](.claude/contracts/add-arm.md) | `src/triad.ts`, `src/artefacts/` |
+| adding or changing an arm | [`.claude/contracts/add-arm.md`](.claude/contracts/add-arm.md) | `src/triad.ts`, `src/artifacts/` |
 | adding or changing a benchmark task | [`.claude/contracts/add-task.md`](.claude/contracts/add-task.md) | `src/tasks.ts` |
 | running trials against a model | [`.claude/contracts/run-trials.md`](.claude/contracts/run-trials.md) | `src/harness.ts`, `src/scripts/` |
 | turning results into a published claim | [`.claude/contracts/report-findings.md`](.claude/contracts/report-findings.md) | `README.md` |
@@ -52,8 +52,8 @@ Unconditional. These are what make the numbers mean anything; breaking one silen
 experiment rather than failing a test.
 
 1. **One source of truth.** `src/spec.ts` turns an OpenAPI document into a `Registry` of
-   `Operation`s. Both artefacts — the MCP server and the CLI binary — are *generated* from it. Never
-   hand-write a tool schema or a subcommand: if the artefacts can drift, the experiment compares
+   `Operation`s. Both artifacts — the MCP server and the CLI binary — are *generated* from it. Never
+   hand-write a tool schema or a subcommand: if the artifacts can drift, the experiment compares
    implementations instead of exposure.
 2. **Prefer the ecosystem to our own code.** `$ref` resolution, seeded sampling, HTTP retry, CLI help
    and jq are all libraries, not ours. This is not tidiness — the CLI's `--help` is a *measured*
@@ -86,10 +86,10 @@ Run artifacts. Regenerable, never hand-edited, and never cited as evidence of an
 the run did.
 
 - `runs/` — per-trial output. Gitignored.
-- `bin/` — the compiled CLI artefact, produced by `bun run build:cli`. Gitignored: it is generated.
+- `bin/` — the compiled CLI artifact, produced by `bun run build:cli`. Gitignored: it is generated.
 
 `data/specs/` is **not** Layer 4. It is a frozen reference with provenance (`*.meta.json`: source
-URL, fetch date, sha256) — the OpenAPI document, not API data. Both artefacts embed it at build time,
+URL, fetch date, sha256) — the OpenAPI document, not API data. Both artifacts embed it at build time,
 so re-fetching it is a deliberate act that changes what every arm is generated from.
 
 ---
@@ -97,8 +97,8 @@ so re-fetching it is a deliberate act that changes what every arm is generated f
 ## Layout
 
 - `src/spec.ts` — OpenAPI → `Registry` (the source of truth)
-- `src/artefacts/mcp-server.ts` — the MCP arm's installable, over stdio
-- `src/artefacts/cli.ts`, `cli-main.ts` — the CLI arm's installable, compiled to a binary
+- `src/artifacts/mcp-server.ts` — the MCP arm's installable, over stdio
+- `src/artifacts/cli.ts`, `cli-main.ts` — the CLI arm's installable, compiled to a binary
 - `src/harness.ts` — pi's `AgentSession`, configured once for every arm
 - `src/triad.ts` — level zero: the unoptimised default of each format
 - `src/tasks.ts` — the tasks, their live solvers and their drift references

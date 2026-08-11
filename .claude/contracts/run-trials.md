@@ -14,7 +14,7 @@ One transformation: a task and a set of arms become results.
 Everything is live. There is no cache, no corpus and no replay, so a run cannot be made to see the
 past — and does not pretend to.
 
-1. **Build the artefacts first.** `bun run build:cli` — the CLI arm installs a binary, and a stale one
+1. **Build the artifacts first.** `bun run build:cli` — the CLI arm installs a binary, and a stale one
    measures the wrong thing.
 2. **Solve the ground truth live, once, before the arms run.** Every arm is graded against that value.
    A recorded reference would go stale in silence; `src/tasks.ts` keeps one only as a drift signal,

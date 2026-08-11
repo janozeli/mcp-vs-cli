@@ -1,8 +1,8 @@
 /**
- * The two artefacts must expose the same operations and the same parameters.
+ * The two artifacts must expose the same operations and the same parameters.
  *
  * This is the last place the arms could drift apart without anyone noticing: the schemas could match
- * perfectly and the comparison still be spoiled if one artefact quietly dropped a capability. These
+ * perfectly and the comparison still be spoiled if one artifact quietly dropped a capability. These
  * tests compare the surfaces operation by operation and parameter by parameter.
  */
 
@@ -14,14 +14,14 @@ import { inputSchema, toolDefinitions } from "./mcp-server.ts";
 
 const registry: Registry = await load("data/specs/camara-dados-abertos-v2.json");
 
-test("every operation reaches both artefacts", () => {
+test("every operation reaches both artifacts", () => {
   const fromMcp = new Set(toolDefinitions(registry, false).map((t) => t.name as string));
   const help = rootHelp(registry);
   expect(fromMcp).toEqual(new Set(registry.operations.map((op) => op.name)));
   for (const op of registry.operations) expect(help).toContain(op.name);
 });
 
-test("every parameter reaches both artefacts", () => {
+test("every parameter reaches both artifacts", () => {
   for (const op of registry.operations) {
     const schema = inputSchema(op, false) as { properties: Record<string, unknown> };
     expect(new Set(Object.keys(schema.properties))).toEqual(new Set(op.params.map((p) => p.name)));

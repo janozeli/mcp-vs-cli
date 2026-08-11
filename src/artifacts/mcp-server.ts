@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 /**
- * The MCP arm's artefact: a real MCP server over stdio, generated from the registry.
+ * The MCP arm's artifact: a real MCP server over stdio, generated from the registry.
  *
  * The arm is an installation, not a code path — a client points at this command and gets the
  * operations as tools. Schemas are built from the registry rather than written by hand, which is
  * what keeps the single-source-of-truth invariant alive across the move to a stock harness: what the
  * client sees is still generated from the same document the CLI is generated from.
  *
- *     bun run src/artefacts/mcp-server.ts                 # every operation, over stdio
- *     N_OPERATIONS=5 bun run src/artefacts/mcp-server.ts  # a slice, for cheap tests
- *     SHOW_SCHEMAS=1 bun run src/artefacts/mcp-server.ts  # print what a client would see
+ *     bun run src/artifacts/mcp-server.ts                 # every operation, over stdio
+ *     N_OPERATIONS=5 bun run src/artifacts/mcp-server.ts  # a slice, for cheap tests
+ *     SHOW_SCHEMAS=1 bun run src/artifacts/mcp-server.ts  # print what a client would see
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";

@@ -17,7 +17,7 @@ four times, each one caught only after it had already produced a published numbe
 | 3 | the system prompt told CLI cells to run `--help` "first" and gave them a syntax template, while telling MCP cells only that tools could be searched | unequal scaffolding presented as a property of the format | the user read the prompts |
 | 4 | the projection parameter was named `_jq` | a leading underscore reads as private in every convention a model has seen; the cell never used the capability it had | noticing the filtered cell's output was identical to the unfiltered one |
 
-Three of the four were found by inspecting an intermediate artefact rather than by a test. The
+Three of the four were found by inspecting an intermediate artifact rather than by a test. The
 fourth was found by a human reading the configuration. **No test in this repo would have caught any
 of them**, because each was a correct implementation of a biased design.
 
@@ -43,7 +43,7 @@ protocol invented here and learned in-context. Part of what "CLI format" measure
 
 This is not fixable inside the experiment, and it should not be quietly compensated for by
 handicapping the CLI. It is declared in the README's caveats, and it is arguably a real advantage of
-the format rather than an artefact of the harness.
+the format rather than an artifact of the harness.
 
 ## Declared asymmetries
 

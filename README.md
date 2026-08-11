@@ -69,7 +69,7 @@ design is the next piece of work.
 
 Listed because a benchmark that publishes only what held up is not reporting, it is advertising.
 
-- **"Blind tool search costs 4× an index."** An artefact of a search that returned five full schemas
+- **"Blind tool search costs 4× an index."** An artifact of a search that returned five full schemas
   per keyword guess.
 - **"An upfront index costs twice a lazy search."** The mechanism is real, but the measurement came
   from a round trip the harness forced on a model that had read the index correctly.
@@ -106,7 +106,7 @@ bun run check
 ## Method notes
 
 - **Names.** The spec's own `operationId`s are unusable as tool names (`search`, `listar`,
-  `listar_1`). Every artefact gets names from one mechanical transform over method and route, applied
+  `listar_1`). Every artifact gets names from one mechanical transform over method and route, applied
   identically so it cannot favour a format. Resource nouns stay in the API's own Portuguese.
 - **The ecosystem over our own code.** `$ref` resolution, seeded sampling, HTTP retry, CLI help and
   jq are libraries. Not tidiness: anything hand-written is a thing that can be accidentally tuned,
@@ -137,11 +137,11 @@ bun run check
   turn. Nothing should be read as a difference smaller than that until repeats are in.
 - **Familiarity favours the CLI.** Models have read enormous amounts of `--help` and `| jq`. Part of
   what "CLI" measures is prior exposure. Not removable inside the experiment — and arguably a real
-  advantage rather than an artefact.
+  advantage rather than an artifact.
 
 ## Status
 
-- [x] OpenAPI → registry, both artefacts generated from it
+- [x] OpenAPI → registry, both artifacts generated from it
 - [x] Static context cost across the design and across N
 - [x] Live API access with no stored responses anywhere
 - [x] Five tasks with ground truth solved live in the same window as the trial
