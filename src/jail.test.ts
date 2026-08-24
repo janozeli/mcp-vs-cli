@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { jailWrapper, leakyEnvNames, referencedHosts } from "./jail.ts";
+import { leakyEnvNames, referencedHosts } from "./jail.ts";
 
 describe("leakyEnvNames", () => {
   test("flags credential-shaped names that carry a value", () => {
@@ -35,62 +35,55 @@ describe("leakyEnvNames", () => {
   });
 });
 
-describe("jailWrapper", () => {
-  const wrapper = jailWrapper("/home/lua/.local/share/mise/shims/ai-jail");
-
-  test("is a shell script that hands every argument to bash inside the jail", () => {
-    expect(wrapper.startsWith("#!/bin/sh\n")).toBe(true);
-    expect(wrapper).toContain('bash "$@"');
-    expect(wrapper).toContain('"/home/lua/.local/share/mise/shims/ai-jail"');
-  });
-
-  test("keeps the jail silent and stateless", () => {
-    // --exec suppresses the banner (tool output must not reveal the jail or add noise) and
-    // --no-save-config keeps the policy file out of the trial cwd the model can list.
-    expect(wrapper).toContain("--exec");
-    expect(wrapper).toContain("--no-save-config");
-  });
-});
-
 describe("referencedHosts", () => {
-  const entry = (content: unknown[]) => ({ message: { role: "assistant", content } });
+  // The shape dsh's session log gives a tool call: the model's arguments arrive as the JSON
+  // string it produced.
   const call = (args: Record<string, unknown>) => ({
-    type: "toolCall",
-    id: "t1",
-    name: "bash",
-    arguments: args,
+    type: "tool/call",
+    seq: 1,
+    data: { turn: 1, step: 1, callId: "t1", name: "bash", arguments: JSON.stringify(args) },
   });
 
   test("extracts hosts from URLs in tool-call arguments", () => {
-    const entries = [
-      entry([call({ command: "curl -s https://dadosabertos.camara.leg.br/api/v2/deputados" })]),
-    ];
+    const entries = [call({ command: "curl -s https://dadosabertos.camara.leg.br/api/v2/deputados" })];
     expect(referencedHosts(entries)).toEqual(["dadosabertos.camara.leg.br"]);
   });
 
   test("ignores URLs that appear only in results, not in arguments", () => {
     const entries = [
-      entry([
-        {
-          type: "toolResult",
-          output: '{"urlFoto":"https://www.camara.leg.br/internet/deputado/foto.jpg"}',
+      {
+        type: "tool/result",
+        seq: 2,
+        data: {
+          message: {
+            content: [
+              {
+                type: "tool-result",
+                content: [{ type: "text", text: '{"urlFoto":"https://www.camara.leg.br/foto.jpg"}' }],
+              },
+            ],
+          },
         },
-      ]),
+      },
     ];
     expect(referencedHosts(entries)).toEqual([]);
   });
 
   test("deduplicates, lowercases, sorts, and strips port and userinfo", () => {
     const entries = [
-      entry([
-        call({ command: "curl https://EXAMPLE.com:8443/x && curl http://user@example.com/y" }),
-        call({ command: "wget https://api.other.dev/z" }),
-      ]),
+      call({ command: "curl https://EXAMPLE.com:8443/x && curl http://user@example.com/y" }),
+      call({ command: "wget https://api.other.dev/z" }),
     ];
     expect(referencedHosts(entries)).toEqual(["api.other.dev", "example.com"]);
   });
 
-  test("tolerates entries without messages or with non-array content", () => {
-    expect(referencedHosts([{}, { message: {} }, { message: { content: "text" } }])).toEqual([]);
+  test("tolerates events without data or with non-string arguments", () => {
+    expect(
+      referencedHosts([
+        {},
+        { type: "tool/call" },
+        { type: "tool/call", data: { arguments: { command: "curl https://obj.example/x" } } },
+      ]),
+    ).toEqual(["obj.example"]);
   });
 });

@@ -50,15 +50,17 @@ the format rather than an artifact of the harness.
 Standing differences that cannot be removed without changing what an arm *is*. Declared here and
 reported with results, per the constraint above.
 
-- **The MCP server process runs on the host, outside the jail.** Every arm's `bash` runs through
-  the identical ai-jail wrapper, set once in the harness. But the `mcp` arm's server is spawned by
-  the MCP client — pi's adapter — on the host, exactly as a real installation works: the boundary
-  difference is structural to MCP's client-spawns-server design, not an omission. All arms reach
-  the API over the same open network, so the affordance itself stays symmetric.
-- **`.mcp.json` sits in the mcp arm's working directory.** It is that arm's honest installation
-  artifact — a real MCP user has one in the project — but it is also a file the other arms' cwds
-  do not contain. Inside the jail the repository path it names does not exist, so listing it
-  discloses nothing reachable.
+- **The MCP server process runs on the host, outside the sandbox.** Every arm's `bash` runs
+  through the identical dsh sandbox (bubblewrap, then Landlock), mounted once in the harness. But
+  the `mcp` arm's server is spawned by the MCP client — dsh's `mcp-client` plugin — on the host,
+  exactly as a real installation works: the boundary difference is structural to MCP's
+  client-spawns-server design, not an omission. All arms reach the API over the same open network,
+  so the affordance itself stays symmetric.
+- **The MCP installation leaves no artifact in the arm's working directory.** Under pi it did — a
+  `.mcp.json` the other arms' cwds lacked, declared here. dsh configures MCP servers in the
+  harness composition (a profile row, as a dsh user would write), so the arms' working directories
+  are now identical at trial start; the installation's only footprint is the `mcp__*` tools the
+  model is offered.
 
 ## Failure mode to watch for
 

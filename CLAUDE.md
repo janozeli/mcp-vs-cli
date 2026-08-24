@@ -16,11 +16,14 @@ contract would have to pull in. Anything that binds conditionally is under `.cla
 A benchmark measuring what it costs to expose a set of capabilities to an LLM agent, and what each
 way of doing it buys back.
 
-**The arms are installations, not code paths.** Every trial runs inside [pi](https://pi.dev), a stock
-agent harness, and every arm gets the same objective, the same settings and unrestricted `bash`. What
-differs is only what has been installed beside it: an MCP server, a binary on `PATH`, or nothing.
-Measuring exposure inside a loop we wrote ourselves made every quirk of that loop a confound, which
-happened four times before the harness replaced it.
+**The arms are installations, not code paths.** Every trial runs on
+[deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh), vendored at a pinned
+commit and composed in-process from its core packages in `src/harness.ts` — the loop, tool dispatch
+and accounting are dsh's; which plugins are mounted is declared in that one file. Every arm gets the
+same objective, the same composition and unrestricted `bash`; what differs is only what has been
+installed beside it: an MCP server, a binary on `PATH`, or nothing. Measuring exposure inside a loop
+we wrote ourselves made every quirk of that loop a confound, which happened four times before a
+shipped harness replaced it.
 
 The project is a ladder, not a verdict. `src/triad.ts` is level zero: each format in its honest
 untuned default. Everything else is an optimisation, and only means anything as a distance from
@@ -65,12 +68,15 @@ experiment rather than failing a test.
    measured after the fact rather than prevented, because a freezer only made it invisible. A
    response that did not arrive is never invented.
 4. **Determinism where it is ours to have, and honesty where it is not.** Sorted iteration order, and
-   sampling through `sample(registry, n, { keep, seed })` rather than ad-hoc slicing. Compaction and
-   retries are disabled in the harness because both would silently rewrite what "context" means.
+   sampling through `sample(registry, n, { keep, seed })` rather than ad-hoc slicing. Compaction,
+   tool-result pruning, spill and retries stay unmounted in the harness because each would silently
+   rewrite what "context" means.
    Model sampling is not pinned: these models reason before answering, so claiming determinism there
    would be a claim the run cannot support. What remains is measured — repeats establish the spread.
-5. **Auditable accounting.** Token counts come from the provider's own usage, surfaced by pi, never
-   from a local tokeniser. Any published figure must be recomputable by someone who does not trust us.
+5. **Auditable accounting.** Token counts come from the provider's own usage, surfaced by dsh on the
+   session log, never from a local tokeniser; dsh's session-level measurement is recorded with its
+   own label saying whether it anchored on provider usage or estimated. Any published figure must be
+   recomputable by someone who does not trust us.
 6. **No LLM judges.** Task success is decided against ground truth solved live, by a solver, in the
    same window as the trial it grades.
 7. **Symmetry of affordance.** Any capability offered to one arm must be equally discoverable and
@@ -87,6 +93,9 @@ the run did.
 
 - `runs/` — per-trial output. Gitignored.
 - `bin/` — the compiled CLI artifact, produced by `bun run build:cli`. Gitignored: it is generated.
+- `vendor/deepseek-harness`'s `node_modules/` and `lib/` — per-machine build products of the pinned
+  submodule, produced by `bun run setup:harness`; the pin itself (the commit) is Layer 3, the build
+  is regenerable.
 
 `data/specs/` is **not** Layer 4. It is a frozen reference with provenance (`*.meta.json`: source
 URL, fetch date, sha256) — the OpenAPI document, not API data. Both artifacts embed it at build time,
@@ -99,7 +108,10 @@ so re-fetching it is a deliberate act that changes what every arm is generated f
 - `src/spec.ts` — OpenAPI → `Registry` (the source of truth)
 - `src/artifacts/mcp-server.ts` — the MCP arm's installable, over stdio
 - `src/artifacts/cli.ts`, `cli-main.ts` — the CLI arm's installable, compiled to a binary
-- `src/harness.ts` — pi's `AgentSession`, configured once for every arm
+- `src/harness.ts` — the dsh composition, mounted once for every arm
+- `src/vendor/cordis.mjs` — the one runtime shim into the vendored checkout (see its header)
+- `vendor/deepseek-harness` — the harness, a submodule pinned to one commit; `bun run setup:harness`
+  builds it
 - `src/triad.ts` — level zero: the unoptimised default of each format
 - `src/tasks.ts` — the tasks, their live solvers and their drift references
 - `src/api.ts` — the only way to the API: live, storing nothing

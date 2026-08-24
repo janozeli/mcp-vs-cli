@@ -55,14 +55,17 @@ constructed and whether generation produces working ones; ours is what the expos
 
 ## Instrumentation
 
-- **Egress allowlist, if the audit ever shows a reason.** Trials run jailed (ai-jail over
-  bubblewrap) with the network open, because ground truth is solved live; what the model reached is
-  audited from the trace instead of blocked. If audited runs ever show real probing beyond the
-  subject API, the upgrade path is a host-side filtering proxy with the jail's network unshared —
-  the pattern Anthropic's sandbox-runtime uses. Not built until the audit says so.
+- **Egress allowlist, if the audit ever shows a reason.** Trials run sandboxed (dsh's bash
+  sandbox: bubblewrap, then Landlock) with the network open, because ground truth is solved live;
+  what the model reached is audited from the trace instead of blocked. If audited runs ever show
+  real probing beyond the subject API, the upgrade path is a host-side filtering proxy with the
+  sandbox's network unshared — the pattern Anthropic's sandbox-runtime uses. Not built until the
+  audit says so.
 
-- **Accounting comes from pi**, not from a derivation of ours: per-turn usage with reasoning and
-  cache separated, plus `getContextUsage()`, the estimate pi itself uses for compaction.
+- **Accounting comes from dsh**, not from a derivation of ours: per-turn usage with cache
+  separated, straight from the provider as dsh logs it, plus the token meter's session measurement,
+  labelled by whether it anchored on provider usage or had to estimate. dsh's adapter surfaces
+  neither cost nor the reasoning split; those columns are absent rather than silently zero.
 - **Probe count per task, from the baseline.** How much the `baseline` arm has to probe is a validity
   measure for each task. A task it answers in one call without probing has no discovery cost, and
   therefore cannot discriminate between ways of documenting an API — task 1 is already known to be

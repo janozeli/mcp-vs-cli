@@ -36,7 +36,8 @@ if (!apiKey) {
 }
 // From here on this local is the key's only custodian. Children of this process — the model's
 // bash, the MCP server — inherit the environment, and the harness refuses to run if anything
-// credential-shaped is still in it.
+// credential-shaped is still in it. The trial reads the key back through dsh's file-backed
+// credential store, never the environment.
 delete process.env.OPENROUTER_API_KEY;
 
 const registry = await normalise(specDocument);
@@ -51,8 +52,8 @@ const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const rows: string[][] = [];
 for (const arm of arms) {
   process.stdout.write(`  running ${arm.key} …`);
-  // Each arm gets its own working directory: the MCP arm writes a .mcp.json there, and a shared cwd
-  // would leak that installation into the arm that runs next.
+  // Each arm gets its own working directory, so one arm's installation cannot leak into the arm
+  // that runs next.
   const cwd = await mkdtemp(join(tmpdir(), `arm-${arm.key}-`));
   const result = await run({ arm, question: task.question, apiKey, cwd });
   const ok = check(task, result.answer, expected);
@@ -75,6 +76,7 @@ for (const arm of arms) {
       ok,
       jailed: result.jailed,
       hosts: result.hosts,
+      contextSource: result.contextSource,
     },
     { kind: "tools", active: result.activeTools, called: result.toolCalls },
     ...result.entries.map((entry) => ({ kind: "entry", entry })),
@@ -89,8 +91,7 @@ for (const arm of arms) {
   console.log(`${result.aborted ? " ABORTED" : ok ? " ok" : " wrong"}  [${result.toolCalls.join(", ")}]`);
   console.log(`      offered: ${result.activeTools.join(", ")}`);
   if (result.aborted) console.log(`      ${result.aborted}`);
-  for (const failure of result.extensionErrors) console.log(`      extension: ${failure}`);
-  if (!result.jailed) console.log("      UNJAILED: ai-jail not found; bash ran unconfined");
+  for (const failure of result.errors) console.log(`      error: ${failure}`);
   if (foreignHosts.length > 0) console.log(`      foreign hosts: ${foreignHosts.join(", ")}`);
   rows.push([
     arm.key,
@@ -99,12 +100,10 @@ for (const arm of arms) {
     String(result.toolCalls.length),
     (result.contextTokens ?? result.peakContext).toLocaleString("en-US"),
     result.totalOutput.toLocaleString("en-US"),
-    result.totalReasoning.toLocaleString("en-US"),
-    `$${result.cost.toFixed(4)}`,
   ]);
 }
 
-const headers = ["arm", "ok", "turns", "calls", "context", "output", "reasoning", "cost"];
+const headers = ["arm", "ok", "turns", "calls", "context", "output"];
 const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));
 const line = (cells: string[]) => cells.map((c, i) => c.padStart(widths[i] ?? 0)).join("  ");
 console.log(`\n${line(headers)}`);

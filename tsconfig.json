@@ -19,7 +19,30 @@
     "noFallthroughCasesInSwitch": true,
 
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+
+    // Twins of the `imports` map in package.json: the same `#dsh/*` names, resolved
+    // to each vendored package's directory so tsc and Bun both read its exports map
+    // (types for tsc, lib for Bun — Bun prefers these paths over package imports).
+    "paths": {
+      "#dsh/cordis": ["./vendor/deepseek-harness/packages/core/agent/node_modules/@deepseek-ai/cordis"],
+      "#dsh/llm": ["./vendor/deepseek-harness/packages/llm/llm"],
+      "#dsh/llm-pi-ai": ["./vendor/deepseek-harness/packages/llm/llm-pi-ai"],
+      "#dsh/token-meter": ["./vendor/deepseek-harness/packages/llm/token-meter"],
+      "#dsh/session": ["./vendor/deepseek-harness/packages/core/session"],
+      "#dsh/system-prompt": ["./vendor/deepseek-harness/packages/core/system-prompt"],
+      "#dsh/tools": ["./vendor/deepseek-harness/packages/core/tools"],
+      "#dsh/agent": ["./vendor/deepseek-harness/packages/core/agent"],
+      "#dsh/agent-loop": ["./vendor/deepseek-harness/packages/core/agent-loop"],
+      "#dsh/credentials-local": ["./vendor/deepseek-harness/packages/credentials/credentials-local"],
+      "#dsh/shell-env": ["./vendor/deepseek-harness/packages/shell/shell-env"],
+      "#dsh/tool-bash": ["./vendor/deepseek-harness/packages/shell/tool-bash"],
+      "#dsh/bash-sandbox": ["./vendor/deepseek-harness/packages/shell/bash-sandbox"],
+      "#dsh/sandbox-local": ["./vendor/deepseek-harness/packages/sandbox/sandbox-local"],
+      "#dsh/sandbox-policy": ["./vendor/deepseek-harness/packages/sandbox/sandbox-policy"],
+      "#dsh/subprocess-local": ["./vendor/deepseek-harness/packages/subprocess/subprocess-local"],
+      "#dsh/mcp-client": ["./vendor/deepseek-harness/packages/mcp/mcp-client"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

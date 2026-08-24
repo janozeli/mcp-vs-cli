@@ -12,9 +12,9 @@ public API, live, inside an agent harness people actually use.
 
 ## The arms are installations, not code paths
 
-Every trial runs inside [pi](https://pi.dev), a stock coding agent. Every arm gets the same
-objective, the same settings and unrestricted `bash`. What differs is only what a user *installed*
-beside it:
+Every trial runs inside [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) (dsh),
+DeepSeek's open agent harness. Every arm gets the same objective, the same settings and unrestricted
+`bash`. What differs is only what a user *installed* beside it:
 
 | arm | what was installed |
 | --- | --- |
@@ -22,10 +22,16 @@ beside it:
 | `mcp` | an MCP server exposing the 78 operations |
 | `cli` | a compiled binary on `PATH` |
 
-This is the second design. The first measured exposure inside a loop written here, which made every
+This is the third design. The first measured exposure inside a loop written here, which made every
 quirk of that loop a confound — and did, four separate times ([arm-symmetry](.claude/reference/arm-symmetry.md)).
-Running inside a harness nobody here controls removes that whole class of error, at the price of no
-longer controlling when the harness loads tools. That price is stated rather than hidden.
+The second ran inside [pi](https://pi.dev), whose loop nobody here controls; every figure it produced
+was withdrawn when the harness changed. This one runs on dsh's own agent loop, composed in-process
+from its core packages the way dsh's test suite composes them — dsh documents no TypeScript
+embedding, its one-shot CLI discards the trace a benchmark needs, and its npm launcher resolves
+plugin versions at boot without a lockfile, which a recomputable experiment cannot accept from a
+developer preview. So the harness is vendored at a pinned commit and the composition is declared in
+one file, [`src/harness.ts`](src/harness.ts). The loop, the tool dispatch and the accounting are
+dsh's; which plugins are mounted is ours, and that choice is part of what these numbers mean.
 
 Both installables are **generated from the same OpenAPI document**, so a difference between arms is a
 difference of exposure and never of capability — enforced by tests that compare the surfaces
@@ -89,9 +95,10 @@ bun install && bun run measure
 ```
 
 The run-time half reaches the live API and needs an [OpenRouter](https://openrouter.ai/keys) key in
-`.env` (see `.env.example`):
+`.env` (see `.env.example`). The harness is a git submodule pinned to one commit, built once:
 
 ```bash
+bun run setup:harness
 bun run build:cli
 bun run ground-truth
 bun run run-arms t1-civil-name
@@ -113,21 +120,27 @@ bun run check
   and the CLI help proved it.
 - **Both filtering paths get the same language.** Real jq, via WebAssembly, on both sides — so the
   comparison is about where filtering happens rather than which syntax the model knows.
-- **Compaction and retries are off.** pi compacts context automatically, and its own context estimate
-  goes null after a compaction until a fresh assistant response. Left on, the benchmark would measure
-  pi's compactor and lose its metric exactly when it mattered.
-- **Nothing is read from the machine.** Settings and session are in memory, the system prompt is
-  overridden, and discovery of extensions, skills, prompt templates and context files is off. An
-  earlier attempt that inherited the operator's own configuration carried about 29,000 extra tokens
-  of context per turn.
+- **Compaction, pruning, spill and retries are off.** dsh's default profile compacts context, prunes
+  oversized tool results and spills large payloads to files; each one silently rewrites what
+  "context" means, so none of those plugins is mounted. Retries are pinned to zero — retry tokens
+  are not the arm's cost.
+- **Nothing is read from the machine.** Sessions are in memory, the credential store is a file the
+  run writes to a temporary directory, no settings document is mounted, and the system prompt is the
+  objective alone. An earlier attempt that inherited the operator's own configuration carried about
+  29,000 extra tokens of context per turn.
+- **Cost and the reasoning-token split are not reported.** dsh's provider adapter surfaces input,
+  output and cache tokens from the provider's usage, and nothing else. Columns that would be
+  silently zero are absent rather than misleading.
 - **Errors are data.** `/votacoes/{id}/votos` answers 400 to `itens`, and recovering from that is
   half of what one task measures.
 
 ## Caveats
 
-- **Choosing a harness chooses a disclosure level.** pi's MCP support surfaces a server through a
-  proxy rather than as N schemas; other harnesses declare everything on connect. The axis this
-  project studies separates two shipped products, so results are about pi's defaults and say so.
+- **Choosing a harness chooses a disclosure level.** dsh's MCP client connects to the server and
+  registers every operation as its own native tool schema — the classic upfront-cost shape. pi, the
+  previous harness, surfaced a server through a lazy proxy instead. Same protocol, opposite
+  disclosure. The axis this project studies separates two shipped products, so results are about
+  dsh's defaults and say so.
 - **Two arms can receive different data.** With nothing cached, the API can move between one trial
   and the next. Not prevented; measured.
 - **A past run cannot be re-executed by anyone, including us.** Auditing survives — the numbers come
@@ -145,7 +158,7 @@ bun run check
 - [x] Static context cost across the design and across N
 - [x] Live API access with no stored responses anywhere
 - [x] Five tasks with ground truth solved live in the same window as the trial
-- [x] Arms as installations inside a stock harness
+- [x] Arms as installations inside a shipped harness, vendored at a pinned commit
 - [ ] Re-run everything under the new design; every published figure predates it
 - [ ] Repeats, to get past the single-trial spread
 - [ ] The optimisation ladder — see [ROADMAP.md](ROADMAP.md)
